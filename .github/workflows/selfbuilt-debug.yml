@@ -132,3 +132,49 @@ jobs:
             staging-files.txt
             resolved-owntv.txt
             manifest-check.txt
+
+      # ---- 4. the same app, signed with Wayne's own key (only when the key secrets are present) ----
+      - name: Prepare the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/slightlygood.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/slightlygood.jks" >> "$GITHUB_ENV"
+            echo "HAVE_KEY=yes" >> "$GITHUB_ENV"
+          else
+            echo "No signing key configured; skipping the signed release build."
+          fi
+
+      - name: Build the app (standard release, signed)
+        if: env.HAVE_KEY == 'yes'
+        working-directory: ./owntv
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: >
+          ./gradlew :app:assembleStandardRelease --stacktrace
+          -Powntv.corePath=${{ github.workspace }}/core
+          -Powntv.libmpvLocalRepo=${{ github.workspace }}/libmpv/build/staging-maven
+
+      - name: Check who signed the release APK
+        if: env.HAVE_KEY == 'yes'
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          APK=$(ls owntv/app/build/outputs/apk/standard/release/*.apk | head -1)
+          echo "APK: $APK" | tee release-check.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | grep -E "^Verifies|Signer #1 certificate (DN|SHA-256)" | tee -a release-check.txt
+          EXPECTED=9d094b7b954f1fc3561a918e7575bc9ee122f5d03483c00d8d58bbc59fbe7a84
+          if grep -q "SHA-256 digest: $EXPECTED" release-check.txt; then echo "SIGNED WITH THE EXPECTED KEY" | tee -a release-check.txt; else echo "SIGNING KEY DOES NOT MATCH" | tee -a release-check.txt; exit 1; fi
+          "$AAPT2" dump badging "$APK" | grep -E "^package:|^application-label:" | tee -a release-check.txt
+
+      - name: Upload the signed release APK
+        if: env.HAVE_KEY == 'yes'
+        uses: actions/upload-artifact@v7
+        with:
+          name: slightlygood-tv-release
+          path: |
+            owntv/app/build/outputs/apk/standard/release/*.apk
+            release-check.txt
