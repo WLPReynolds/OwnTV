@@ -165,7 +165,7 @@ jobs:
           AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
           APK=$(ls owntv/app/build/outputs/apk/standard/release/*.apk | head -1)
           echo "APK: $APK" | tee release-check.txt
-          "$APKSIGNER" verify --verbose --print-certs "$APK" | grep -E "^Verifies|Signer #1 certificate (DN|SHA-256)" | tee -a release-check.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | grep -E "^Verifies|certificate (DN|SHA-256 digest)" | tee -a release-check.txt
           EXPECTED=9d094b7b954f1fc3561a918e7575bc9ee122f5d03483c00d8d58bbc59fbe7a84
           if grep -q "SHA-256 digest: $EXPECTED" release-check.txt; then echo "SIGNED WITH THE EXPECTED KEY" | tee -a release-check.txt; else echo "SIGNING KEY DOES NOT MATCH" | tee -a release-check.txt; exit 1; fi
           "$AAPT2" dump badging "$APK" | grep -E "^package:|^application-label:" | tee -a release-check.txt
