@@ -1,0 +1,123 @@
+name: Self-built debug APK
+
+# Builds the TV app's debug APK entirely from this account's three forks, with nothing taken from the
+# original author's published packages for tv.own.owntv:
+#   1. libmpv from WLPReynolds/OwnTV_libmpv (same steps and contract check as its build.yaml),
+#      staged into a local Maven folder under the version "local";
+#   2. OwnTV_Core from WLPReynolds/OwnTV_Core, substituted in through owntv.corePath;
+#   3. this app, standard (arm) debug variant, signed with the throwaway debug key. No secrets used.
+# Runs only on the selfbuilt-ci branch or by hand, so it never competes with android.yml on main.
+on:
+  push:
+    branches:
+      - selfbuilt-ci
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selfbuilt-debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: libmpv, core and app
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - name: Checkout the app (this repo)
+        uses: actions/checkout@v7
+        with:
+          path: owntv
+
+      - name: Checkout OwnTV_Core (our fork)
+        uses: actions/checkout@v7
+        with:
+          repository: WLPReynolds/OwnTV_Core
+          path: core
+
+      - name: Checkout OwnTV_libmpv (our fork)
+        uses: actions/checkout@v7
+        with:
+          repository: WLPReynolds/OwnTV_libmpv
+          path: libmpv
+
+      - name: Record exactly what was built
+        run: |
+          for d in owntv core libmpv; do
+            echo "$d: $(git -C $d remote get-url origin) @ $(git -C $d rev-parse HEAD)"
+          done | tee sources.txt
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # ---- 1. libmpv, exactly as OwnTV_libmpv's build.yaml does it ----
+      - name: Symlink SDK for the libmpv build scripts
+        working-directory: ./libmpv/buildscripts
+        run: |
+          mkdir sdk
+          ln -s ${ANDROID_HOME} ./sdk/android-sdk-linux
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf pkgconf libtool ninja-build python3-pip python3-jinja2 gperf nasm
+          sudo pip3 install --break-system-packages meson pyelftools
+
+      - name: Download libmpv dependencies
+        working-directory: ./libmpv/buildscripts
+        env:
+          IN_CI: 1
+        run: ./download.sh
+
+      - name: Apply libmpv patches
+        working-directory: ./libmpv/buildscripts
+        run: ./patch.sh
+
+      - name: Build libmpv
+        working-directory: ./libmpv/buildscripts
+        run: ./build.sh
+
+      - name: Check the libmpv build contract
+        working-directory: ./libmpv
+        run: python3 tools/inspect_aar.py libmpv/build/outputs/aar/libmpv-release.aar | tee ../contract.txt
+
+      - name: Stage libmpv as version "local" in a local Maven folder
+        working-directory: ./libmpv
+        run: |
+          ./gradlew :libmpv:publishReleasePublicationToStagingRepository -PlibVersion=local
+          find build/staging-maven -type f | sort | tee ../staging-files.txt
+
+      # ---- 2 + 3. the app, against our Core and our libmpv ----
+      - name: Build the app (standard debug)
+        working-directory: ./owntv
+        run: >
+          ./gradlew :app:assembleStandardDebug --stacktrace
+          -Powntv.corePath=${{ github.workspace }}/core
+          -Powntv.libmpvLocalRepo=${{ github.workspace }}/libmpv/build/staging-maven
+
+      - name: Show where tv.own.owntv came from
+        working-directory: ./owntv
+        run: >
+          ./gradlew :app:dependencies --configuration standardDebugRuntimeClasspath
+          -Powntv.corePath=${{ github.workspace }}/core
+          -Powntv.libmpvLocalRepo=${{ github.workspace }}/libmpv/build/staging-maven
+          | grep -i 'tv.own.owntv' | sort -u | tee ../resolved-owntv.txt
+
+      - name: Upload the APK and the evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: owntv-selfbuilt-debug
+          path: |
+            owntv/app/build/outputs/apk/standard/debug/*.apk
+            sources.txt
+            contract.txt
+            staging-files.txt
+            resolved-owntv.txt
