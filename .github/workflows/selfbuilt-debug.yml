@@ -118,7 +118,8 @@ jobs:
           AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
           APK=$(ls owntv/app/build/outputs/apk/standard/debug/*.apk | head -1)
           "$AAPT2" dump badging "$APK" | grep -E "^package:|^application-label:|^uses-permission|^launchable-activity" | tee manifest-check.txt
-          "$AAPT2" dump permissions "$APK" > /dev/null
+          "$AAPT2" dump xmltree --file AndroidManifest.xml "$APK" > manifest-tree.txt
+          if grep -q -i -E "device_admin|BIND_DEVICE_ADMIN" manifest-tree.txt; then echo "DEVICE ADMIN COMPONENT PRESENT" | tee -a manifest-check.txt; else echo "no device-admin component" | tee -a manifest-check.txt; fi
 
       - name: Upload the APK and the evidence
         uses: actions/upload-artifact@v7

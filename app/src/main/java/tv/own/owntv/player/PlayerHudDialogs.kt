@@ -283,7 +283,7 @@ internal fun SleepTimerDialog(
                 )
             }
         }
-        item { ScreenOffRow() }
+        // Screen-off row removed in this fork (no device-admin component).
     }
 }
 
