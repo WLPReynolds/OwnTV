@@ -6,11 +6,12 @@ name: Self-built debug APK
 #      staged into a local Maven folder under the version "local";
 #   2. OwnTV_Core from WLPReynolds/OwnTV_Core, substituted in through owntv.corePath;
 #   3. this app, standard (arm) debug variant, signed with the throwaway debug key. No secrets used.
-# Runs only on the selfbuilt-ci branch or by hand, so it never competes with android.yml on main.
+# Runs only on the selfbuilt-ci and step4-rebrand branches or by hand, so it never competes with android.yml on main.
 on:
   push:
     branches:
       - selfbuilt-ci
+      - step4-rebrand
   workflow_dispatch:
 
 permissions:
