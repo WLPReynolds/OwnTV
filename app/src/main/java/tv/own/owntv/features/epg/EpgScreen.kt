@@ -798,6 +798,7 @@ fun EpgScreen(
             epgOffsetValue = vm.currentEpgShift(ch)?.let { liveEpgShiftLabel(it) } ?: stringResource(R.string.content_epg_offset_global_short),
             onWatch = { watch(ch) },
             onFavorite = { vm.toggleFavoriteChannel(ch) },
+            onHide = { vm.hideChannel(ch) },
             onAutoMatch = { vm.autoMatchOne(ch) },
             onPickEpg = { matchingChannel = ch },
             onEpgOffset = { offsetChannel = ch },

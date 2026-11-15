@@ -67,6 +67,7 @@ internal fun TrackDialog(
     onDismiss: () -> Unit,
     audioDelayMs: Int? = null,                 // non-null on the Audio dialog (VOD) → show the A/V-sync nudge
     onAdjustAudioDelay: ((Int) -> Unit)? = null,
+    onSetAudioDelay: ((Int) -> Unit)? = null,   // OK on the A/V-sync row: type an exact value
     // Whether this item already has a remembered A/V-sync offset, and the action that remembers or
     // forgets it. Both accompany [onAdjustAudioDelay].
     audioDelayRemembered: Boolean = false,
@@ -83,6 +84,7 @@ internal fun TrackDialog(
     onResetSubDelay: () -> Unit = {},
 ) {
     val focus = remember { FocusRequester() }
+    var typingDelay by remember { mutableStateOf(false) }
     BackHandler { onDismiss() }
     // Open with focus on the CURRENTLY-selected track (so re-opening to change it lands on the right row),
     // else the "Off" row if nothing's selected, else the first track. The requestFocus must run from
@@ -164,10 +166,26 @@ internal fun TrackDialog(
                     title = stringResource(R.string.player_av_sync),
                     value = formatDelay(audioDelayMs ?: 0),
                     step = AV_SYNC_STEP_MS,
-                    canStep = { it in -5_000..5_000 },
+                    canStep = { it in -AUDIO_DELAY_LIMIT_MS..AUDIO_DELAY_LIMIT_MS },
                     current = audioDelayMs ?: 0,
                     onStep = onAdjustAudioDelay,
+                    onClick = { typingDelay = true },
                 )
+                if (typingDelay && onSetAudioDelay != null) {
+                    tv.own.owntv.ui.components.TextInputDialog(
+                        title = stringResource(R.string.player_av_sync),
+                        initial = (audioDelayMs ?: 0).toString(),
+                        label = stringResource(R.string.fork_av_sync_label),
+                        hint = stringResource(R.string.fork_av_sync_hint),
+                        confirmLabel = stringResource(R.string.common_save),
+                        allowBlank = false,
+                        onConfirm = { text ->
+                            text.trim().trimStart('+').toIntOrNull()?.let(onSetAudioDelay)
+                            typingDelay = false
+                        },
+                        onDismiss = { typingDelay = false },
+                    )
+                }
             }
             // Lip-sync error belongs to the stream, not to the user: this keeps the offset for THIS
             // film or channel, so it comes back next time without following you onto anything else.

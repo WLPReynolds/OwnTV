@@ -915,6 +915,7 @@ fun PlayerHud(
                 // stream can arrive with the provider's own drift baked in), on mpv and ExoPlayer alike.
                 audioDelayMs = if (player.audioDelayAvailable()) audioDelayMs else null,
                 onAdjustAudioDelay = if (player.audioDelayAvailable()) ({ d -> player.adjustAudioDelay(d) }) else null,
+                onSetAudioDelay = if (player.audioDelayAvailable()) ({ ms -> player.setAudioDelay(ms) }) else null,
                 audioDelayRemembered = audioDelayRemembered,
                 onToggleRememberAudioDelay = if (player.audioDelayAvailable()) ({ player.toggleRememberAudioDelay() }) else null,
             )

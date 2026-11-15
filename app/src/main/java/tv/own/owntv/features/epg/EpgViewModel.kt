@@ -592,6 +592,14 @@ class EpgViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /** Add/remove a channel from Favourites directly from the Guide (channel long-press / detail). */
+    /** Hide the channel from every list for this profile (undo: Settings → Customize → Hidden channels). */
+    fun hideChannel(channel: ChannelEntity) {
+        viewModelScope.launch {
+            val pid = currentProfileId() ?: return@launch
+            customize.setItemHidden(pid, MediaType.LIVE, CustomizeKeys.channel(channel), channel.name, true)
+        }
+    }
+
     fun toggleFavoriteChannel(channel: ChannelEntity) {
         viewModelScope.launch {
             val pid = currentProfileId() ?: return@launch

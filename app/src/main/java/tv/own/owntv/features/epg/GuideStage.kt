@@ -327,6 +327,7 @@ internal class GuideProgrammeActions(
     val onRecordFromCatchup: (() -> Unit)?,
     val isFavorite: Boolean,
     val onFavorite: () -> Unit,
+    val onHide: () -> Unit,
     val onPickEpg: (() -> Unit)?,
     /** Auto-match this one channel by name; its result opens in the review popup. */
     val onAutoMatch: (() -> Unit)?,
@@ -389,6 +390,7 @@ internal fun guideProgrammeActions(
         onRecordFromCatchup = if (!upcoming && canCatchup && recording == null) ({ vm.record(ch, p) }) else null,
         isFavorite = ch.id in favoriteIds,
         onFavorite = { vm.toggleFavoriteChannel(ch) },
+        onHide = { vm.hideChannel(ch) },
         onPickEpg = onPickEpg,
         onAutoMatch = if (autoMatch) ({ vm.autoMatchOne(ch) }) else null,
         epgOffsetValue = vm.currentEpgShift(ch)?.let { tv.own.owntv.features.live.liveEpgShiftLabel(it) }
@@ -479,6 +481,10 @@ internal fun GuideProgrammeMenu(title: String, subtitle: String, actions: GuideP
             icon = OwnTVIcon.FAVORITE,
             onClick = { actions.onFavorite(); onDismiss() },
         )
+        StageMenuItem(
+            text = stringResource(R.string.content_hide_channel), icon = OwnTVIcon.EYE_OFF,
+            onClick = { actions.onHide(); onDismiss() },
+        )
         if (actions.onAutoMatch != null) {
             StageMenuItem(text = stringResource(R.string.content_epg_match_button), icon = OwnTVIcon.SPARKLE, onClick = { onDismiss(); actions.onAutoMatch.invoke() })
         }
@@ -564,6 +570,7 @@ internal fun GuideChannelMenu(
     epgOffsetValue: String,
     onWatch: () -> Unit,
     onFavorite: () -> Unit,
+    onHide: () -> Unit,
     onAutoMatch: () -> Unit,
     onPickEpg: () -> Unit,
     onEpgOffset: () -> Unit,
@@ -584,6 +591,7 @@ internal fun GuideChannelMenu(
             text = stringResource(if (isFavorite) R.string.content_epg_remove_favourite else R.string.content_epg_add_favourite),
             icon = OwnTVIcon.FAVORITE, onClick = { onFavorite(); onDismiss() },
         )
+        StageMenuItem(text = stringResource(R.string.content_hide_channel), icon = OwnTVIcon.EYE_OFF, onClick = { onHide(); onDismiss() })
         StageMenuItem(text = stringResource(R.string.content_epg_match_button), icon = OwnTVIcon.SPARKLE, onClick = { onDismiss(); onAutoMatch() })
         StageMenuItem(text = stringResource(R.string.content_epg_pick_manually), icon = OwnTVIcon.EPG, onClick = { onDismiss(); onPickEpg() })
         StageMenuItem(text = stringResource(R.string.content_epg_time_offset), icon = OwnTVIcon.CLOCK, value = epgOffsetValue, onClick = { onDismiss(); onEpgOffset() })
