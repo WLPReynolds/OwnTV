@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Slightly Good TV artwork, derived from the logo pack. Overrides OwnTV_Core's resource of the same name. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="988dp" android:height="182dp"
+    android:viewportWidth="988" android:viewportHeight="182">
+    <group android:scaleX="2.40243" android:scaleY="2.40243" android:translateX="-5.405" android:translateY="130.039">
+        <path android:pathData="M359.94,-41.1 H393.9 A19.5,19.5 0 0 1 413.4,-21.6 V-21.6 A19.5,19.5 0 0 1 393.9,-2.1000000000000014 H359.94 A19.5,19.5 0 0 1 340.44,-21.6 V-21.6 A19.5,19.5 0 0 1 359.94,-41.1 Z M364.1699999999999 -10.499999999999998V-30.299999999999997H369.02999999999986V-10.499999999999998ZM358.8899999999999 -26.22V-30.299999999999997H374.3099999999999V-26.22ZM382.34999999999985 -10.499999999999998 376.01999999999987 -30.299999999999997H381.29999999999984L385.4999999999999 -14.519999999999998H385.73999999999984L389.8799999999999 -30.299999999999997H395.15999999999985L388.82999999999987 -10.499999999999998Z" android:fillColor="#FFFFFF" android:fillType="evenOdd"/>
+    </group>
+</vector>

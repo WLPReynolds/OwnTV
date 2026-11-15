@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Slightly Good TV artwork, derived from the logo pack. Overrides OwnTV_Core's resource of the same name. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.35" android:scaleY="0.35" android:translateX="26.0" android:translateY="29.5">
+        <path android:pathData="M56,12 L78,32 L104,8" android:strokeColor="#F6F1E7" android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+        <path android:pathData="M38,30 H122 A28,28 0 0 1 150,58 V102 A28,28 0 0 1 122,130 H38 A28,28 0 0 1 10,102 V58 A28,28 0 0 1 38,30 Z" android:fillColor="#F6F1E7"/>
+        <path android:pathData="M42,44 H118 A18,18 0 0 1 136,62 V98 A18,18 0 0 1 118,116 H42 A18,18 0 0 1 24,98 V62 A18,18 0 0 1 42,44 Z" android:fillColor="#F5A524"/>
+        <path android:pathData="M54,74 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0 Z" android:fillColor="#1B1A17"/>
+        <path android:pathData="M94,74 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0 Z" android:fillColor="#1B1A17"/>
+        <path android:pathData="M56,96 H84 Q99,96 108,85" android:strokeColor="#1B1A17" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    </group>
+</vector>

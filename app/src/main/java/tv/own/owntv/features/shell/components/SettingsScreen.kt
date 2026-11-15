@@ -744,13 +744,7 @@ fun SettingsScreen(
             focus = rowFocus.getValue(SettingsTab.LANGUAGE),
             onClick = { open(SettingsTab.LANGUAGE) },
         ),
-        RootRow(
-            "app_icon", TileTone.SECONDARY, OwnTVIcon.PALETTE,
-            title = stringResource(R.string.settings_app_icon), desc = stringResource(R.string.settings_app_icon_summary),
-            chip = stringResource(appIcon.label), chipTone = TileTone.SECONDARY,
-            focus = appIconRowFocus,
-            onClick = { saveScroll(); dialogReturn = appIconRowFocus; showAppIcon = true },
-        ),
+        // App icon row removed in this fork: there is one icon, Slightly Good TV.
         RootRow(
             "brand_accent", TileTone.SECONDARY, OwnTVIcon.PALETTE,
             title = stringResource(R.string.settings_brand_accent), desc = stringResource(R.string.settings_line_brand_accent),
@@ -1008,8 +1002,6 @@ fun SettingsScreen(
         ) { saveScroll(); dialogReturn = searchFieldFocus; showPopupSize = true },
         SettingsSearchEntry(stringResource(R.string.settings_group_appearance), stringResource(R.string.settings_ui_zoom), stringResource(R.string.settings_search_keywords_zoom), OwnTVIcon.ZOOM, TileTone.SECONDARY,
                 chip = stringResource(R.string.common_percent, uiZoomPercent), chipTone = TileTone.SECONDARY) { saveScroll(); dialogReturn = searchFieldFocus; showZoom = true },
-        SettingsSearchEntry(stringResource(R.string.settings_group_app), stringResource(R.string.settings_app_icon), stringResource(R.string.settings_app_icon_summary), OwnTVIcon.PALETTE, TileTone.SECONDARY,
-                chip = stringResource(appIcon.label), chipTone = TileTone.SECONDARY) { saveScroll(); dialogReturn = searchFieldFocus; showAppIcon = true },
         SettingsSearchEntry(stringResource(R.string.settings_group_app), stringResource(R.string.settings_brand_accent), stringResource(R.string.settings_line_brand_accent), OwnTVIcon.PALETTE, TileTone.SECONDARY,
                 chip = stringResource(if (brandAccent) R.string.common_on else R.string.common_off), chipTone = TileTone.SECONDARY, showChevron = false) { settingsVm.setBrandAccentTriangle(!brandAccent) },
             SettingsSearchEntry(stringResource(R.string.settings_group_appearance), stringResource(R.string.settings_animations), stringResource(R.string.settings_search_keywords_animation), OwnTVIcon.MOTION, TileTone.SECONDARY,
@@ -2688,7 +2680,6 @@ private fun stageRowExtras(
             onStep = { vm.setVodLayout(cycle(vodLayouts, vodLayout, it)) },
             onClick = { vm.setVodLayout(cycle(vodLayouts, vodLayout, 1)) },
         ),
-        "app_icon" to RowExtra(SettingValue.Opens(stringResource(appIcon.label))),
         "brand_accent" to RowExtra(SettingValue.Switch(brandAccent), onClick = { vm.setBrandAccentTriangle(!brandAccent) }),
         "check_updates" to RowExtra(SettingValue.Action(stringResource(R.string.settings_check_now))),
         "tab_LANGUAGE" to RowExtra(help = pluralStringResource(R.plurals.settings_help_language, languages, languages)),
