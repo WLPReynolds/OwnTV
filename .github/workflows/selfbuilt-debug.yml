@@ -111,6 +111,13 @@ jobs:
           -Powntv.libmpvLocalRepo=${{ github.workspace }}/libmpv/build/staging-maven
           | grep -i 'tv.own.owntv' | sort -u | tee ../resolved-owntv.txt
 
+      - name: Show the permissions and app ID the APK really has
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          APK=$(ls owntv/app/build/outputs/apk/standard/debug/*.apk | head -1)
+          "$AAPT2" dump badging "$APK" | grep -E "^package:|^application-label:|^uses-permission|^launchable-activity" | tee manifest-check.txt
+          "$AAPT2" dump permissions "$APK" > /dev/null
+
       - name: Upload the APK and the evidence
         uses: actions/upload-artifact@v7
         with:
@@ -121,3 +128,4 @@ jobs:
             contract.txt
             staging-files.txt
             resolved-owntv.txt
+            manifest-check.txt

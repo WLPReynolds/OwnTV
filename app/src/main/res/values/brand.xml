@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Overrides OwnTV_Core's app_name ("OwnTV"): the app module wins over a library. -->
+    <string name="app_name" translatable="false">Slightly Good TV</string>
+</resources>

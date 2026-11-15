@@ -4,4 +4,6 @@
     <color name="owntv_window_bg">#040e0b</color>
     <!-- Adaptive launcher icon background. -->
     <color name="owntv_icon_bg">#050914</color>
+    <!-- Slightly Good TV launcher icon background (amber). -->
+    <color name="slightlygood_icon_bg">#F5A524</color>
 </resources>
