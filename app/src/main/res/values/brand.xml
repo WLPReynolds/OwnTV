@@ -4,4 +4,6 @@
     <string name="app_name" translatable="false">Slightly Good TV</string>
     <string name="fork_av_sync_label" translatable="false">Milliseconds</string>
     <string name="fork_av_sync_hint" translatable="false">Type the offset in milliseconds, from -20000 to 20000. Positive plays the sound later.</string>
+    <string name="fork_hold_ok" translatable="false">Hold OK</string>
+    <string name="fork_hold_ok_hide" translatable="false">Hide or show, then next</string>
 </resources>

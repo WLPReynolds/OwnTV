@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -907,6 +908,7 @@ private fun GuideRow(
     }
     var focused by remember { mutableStateOf(false) }
     var okDown by remember { mutableStateOf(false) }
+    var okDownAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(focused, cursorTime, programmes) { if (focused) onShow(programmeAt(programmes, cursorTime)) }
     val rowSelected = focused && !cellMode
     Row(Modifier.fillMaxWidth().height(GuideGridDefaults.RowHeight), verticalAlignment = Alignment.CenterVertically) {
@@ -923,9 +925,15 @@ private fun GuideRow(
                     when (e.key) {
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                             val repeat = e.nativeKeyEvent.repeatCount
-                            if (down && repeat == 0) okDown = true
+                            if (down && repeat == 0) { okDown = true; okDownAt = android.os.SystemClock.uptimeMillis() }
                             else if (down && okDown) { okDown = false; onMenu(programmeAt(progs, cursorTime)) }
-                            else if (!down && okDown) { okDown = false; if (cellMode) onOk(programmeAt(progs, cursorTime)) else onEnterCell() }
+                            else if (!down && okDown) {
+                                okDown = false
+                                // Some remotes send no key repeats: a press held past half a second still counts as a hold.
+                                val held = android.os.SystemClock.uptimeMillis() - okDownAt >= 500L
+                                if (held) onMenu(programmeAt(progs, cursorTime))
+                                else if (cellMode) onOk(programmeAt(progs, cursorTime)) else onEnterCell()
+                            }
                             true
                         }
                         Key.Menu -> { if (down) onMenu(programmeAt(progs, cursorTime)); true }

@@ -339,6 +339,18 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 }
                             },
                             onOpenItems = { itemsReturnKey = row.key; vm.openItems(row) },
+                            // Held OK on the row itself hides/shows it and steps down to the next category,
+                            // so a run of categories can be cleared with hold, hold, hold.
+                            onRowLongClick = {
+                                if (rangeAnchorKey != null && rangeMode == SpanSelector.Mode.HIDE) {
+                                    if (row.key == rangeAnchorKey) vm.cancelRange()
+                                    else { dialogReturn = rowFocusers[row.key]; rangeEnd = row }
+                                } else {
+                                    vm.setCategoryHidden(row, !row.hidden)
+                                    val next = rows.getOrNull(index + 1)
+                                    if (next != null) runCatching { rowFocusers[next.key]?.requestFocus() }
+                                }
+                            },
                         )
                     }
                 }
@@ -605,6 +617,7 @@ private fun CategoryRow(
     onHideLongPress: () -> Unit,
     onPickRangeEnd: () -> Unit,
     onOpenItems: () -> Unit,
+    onRowLongClick: () -> Unit,
 ) {
     val meta = listOfNotNull(
         row.hidden.takeIf { it }?.let { stringResource(R.string.settings_customize_hidden) },
@@ -633,6 +646,7 @@ private fun CategoryRow(
             androidx.tv.material3.Text(stringResource(R.string.settings_customize_hidden), style = tv.own.owntv.ui.theme.stageText(18, 700), color = tv.own.owntv.ui.theme.StageColors.Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         } else SettingValue.Opens(null),
         onClick = onOpenItems,
+        onLongClick = onRowLongClick,
         marked = isInSpan,
         keepPanel = keepPanel,
         help = SettingHelp(
@@ -640,6 +654,7 @@ private fun CategoryRow(
             text = stringResource(R.string.settings_customize_description),
             hints = listOf(
                 stringResource(R.string.common_ok) to stringResource(R.string.settings_key_open),
+                stringResource(R.string.fork_hold_ok) to stringResource(R.string.fork_hold_ok_hide),
                 "▶" to stringResource(R.string.settings_key_actions),
                 stringResource(R.string.common_back) to stringResource(R.string.common_nav_settings),
             ),
