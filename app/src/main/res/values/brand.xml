@@ -6,4 +6,17 @@
     <string name="fork_av_sync_hint" translatable="false">Type the offset in milliseconds, from -20000 to 20000. Positive plays the sound later.</string>
     <string name="fork_hold_ok" translatable="false">Hold OK</string>
     <string name="fork_hold_ok_hide" translatable="false">Hide or show, then next</string>
+    <string name="fork_lists_export" translatable="false">Export lists</string>
+    <string name="fork_lists_import" translatable="false">Import edits</string>
+    <string name="fork_lists_export_title" translatable="false">Send lists to your computer</string>
+    <string name="fork_lists_export_body" translatable="false">On a computer on the same Wi-Fi, open the address shown, enter the PIN and download the lists file. Open it in the Slightly Good TV editor, make your changes and save them.</string>
+    <string name="fork_lists_import_title" translatable="false">Receive edits from your computer</string>
+    <string name="fork_lists_import_body" translatable="false">On a computer on the same Wi-Fi, open the address shown, enter the PIN and upload the file the editor saved.</string>
+    <string name="fork_lists_done_title" translatable="false">Edits applied</string>
+    <string name="fork_lists_done_body" translatable="false">%1$d hidden categories, %2$d hidden channels or titles, %3$d renamed, %4$d moved. Check them in Customize categories &amp; items.</string>
+    <string name="fork_lists_bad_title" translatable="false">Not an edits file</string>
+    <string name="fork_lists_bad_body" translatable="false">That file was not saved by the Slightly Good TV editor. Export the lists again, edit that file and save it.</string>
+    <string name="fork_lists_failed_title" translatable="false">Something went wrong</string>
+    <string name="fork_lists_failed_body" translatable="false">The edits could not be read or applied. Nothing was changed.</string>
+    <string name="fork_lists_export_failed_body" translatable="false">The lists could not be prepared for this playlist.</string>
 </resources>

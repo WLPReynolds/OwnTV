@@ -38,6 +38,7 @@ import tv.own.owntv.features.settings.HomeSettingsViewModel
 import tv.own.owntv.features.settings.LanguageSettingsViewModel
 import tv.own.owntv.features.settings.OpenSubtitlesViewModel
 import tv.own.owntv.features.settings.PlayerButtonsSettingsViewModel
+import tv.own.owntv.features.settings.PlaylistListsViewModel
 import tv.own.owntv.features.settings.SettingsViewModel
 import tv.own.owntv.features.setup.DisplaySizeViewModel
 import tv.own.owntv.features.setup.SetupViewModel
@@ -201,6 +202,7 @@ val appModule = module {
     viewModelOf(::SettingsPinViewModel)
     viewModelOf(::CustomizeItemsViewModel)
     viewModelOf(::BackupViewModel)
+    viewModelOf(::PlaylistListsViewModel)
     viewModelOf(::EpgSourcesViewModel)
     viewModelOf(::ChannelNameCleanupViewModel)
     // The counts the More rows and the Favourites / History tabs carry.

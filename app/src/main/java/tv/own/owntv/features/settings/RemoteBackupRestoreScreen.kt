@@ -36,6 +36,8 @@ fun RemoteBackupRestoreScreen(
     onBackupReceived: (File) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    title: String? = null,
+    description: String? = null,
 ) {
     val actionFocus = remember { FocusRequester() }
     LaunchedEffect(state::class) { runCatching { actionFocus.requestFocus() } }
@@ -48,8 +50,8 @@ fun RemoteBackupRestoreScreen(
     val restart = { onStart(CompanionLink.DEFAULT_PORT) }
     tv.own.owntv.ui.stage.StagePopup(
         onDismiss = onBack,
-        title = stringResource(R.string.settings_restore_remote_title),
-        body = stringResource(R.string.settings_restore_remote_description),
+        title = title ?: stringResource(R.string.settings_restore_remote_title),
+        body = description ?: stringResource(R.string.settings_restore_remote_description),
         width = 820.mpx,
         modifier = modifier,
         buttons = {
@@ -81,6 +83,8 @@ fun RemoteBackupExportScreen(
     onStop: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    title: String? = null,
+    description: String? = null,
 ) {
     val actionFocus = remember { FocusRequester() }
     LaunchedEffect(state::class) { runCatching { actionFocus.requestFocus() } }
@@ -88,8 +92,8 @@ fun RemoteBackupExportScreen(
 
     tv.own.owntv.ui.stage.StagePopup(
         onDismiss = onBack,
-        title = stringResource(R.string.settings_download_remote_title),
-        body = stringResource(R.string.settings_download_remote_description),
+        title = title ?: stringResource(R.string.settings_download_remote_title),
+        body = description ?: stringResource(R.string.settings_download_remote_description),
         width = 820.mpx,
         modifier = modifier,
         buttons = {

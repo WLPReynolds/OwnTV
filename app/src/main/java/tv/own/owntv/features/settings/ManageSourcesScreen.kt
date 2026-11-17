@@ -8,6 +8,7 @@ import tv.own.owntv.ui.theme.StageColors
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -87,6 +88,12 @@ fun ManageSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var editRemote by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<SourceEntity?>(null) }
     var resyncChoice by remember { mutableStateOf<SourceEntity?>(null) }
+    // Category / channel lists out to a computer-side editor, and its edits back (see PlaylistLists).
+    val listsVm: PlaylistListsViewModel = koinViewModel()
+    val listsOutcome by listsVm.outcome.collectAsStateWithLifecycle()
+    val listsRemote by listsVm.remoteState.collectAsStateWithLifecycle()
+    var listsExportFor by remember { mutableStateOf<SourceEntity?>(null) }
+    var listsImportFor by remember { mutableStateOf<SourceEntity?>(null) }
     var nameCleanup by remember { mutableStateOf<SourceEntity?>(null) }
     // Set while the "this will stop playback and take a while" confirmation is on screen.
     var confirmRetest by remember { mutableStateOf<SourceEntity?>(null) }
@@ -338,11 +345,51 @@ fun ManageSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         onTest = { contextId = source.id; contextIndex = index; vm.testSource(source) },
                         onResync = { contextId = source.id; contextIndex = index; resyncChoice = source },
                         onCleanNames = { contextId = source.id; contextIndex = index; nameCleanup = source },
+                        onExportLists = { contextId = source.id; contextIndex = index; listsExportFor = source; listsVm.startExport(source) },
+                        onImportLists = { contextId = source.id; contextIndex = index; listsImportFor = source },
                         onCancelSync = { contextId = source.id; contextIndex = index; vm.cancelResync(source) },
                         onDelete = { contextId = source.id; contextIndex = index; confirmDelete = source },
                     )
                 }
             }
+        }
+
+        listsExportFor?.let { _ ->
+            Box(Modifier.fillMaxSize().background(tv.own.owntv.ui.theme.LocalStagePalette.current.page)) {
+                RemoteBackupExportScreen(
+                    state = listsRemote,
+                    preparing = listsOutcome == PlaylistListsViewModel.Outcome.Preparing,
+                    onStop = { listsVm.stop() },
+                    onBack = { listsVm.stop(); listsExportFor = null },
+                    title = stringResource(R.string.fork_lists_export_title),
+                    description = stringResource(R.string.fork_lists_export_body),
+                )
+            }
+        }
+        listsImportFor?.let { src ->
+            Box(Modifier.fillMaxSize().background(tv.own.owntv.ui.theme.LocalStagePalette.current.page)) {
+                RemoteBackupRestoreScreen(
+                    state = listsRemote,
+                    backups = listsVm.remoteFiles,
+                    onStart = { listsVm.startImport() },
+                    onStop = { listsVm.stop() },
+                    onBackupReceived = { file -> listsImportFor = null; listsVm.stop(); listsVm.importFile(src, file) },
+                    onBack = { listsVm.stop(); listsImportFor = null },
+                    title = stringResource(R.string.fork_lists_import_title),
+                    description = stringResource(R.string.fork_lists_import_body),
+                )
+            }
+        }
+        val listsMessage: Pair<String, String>? = when (val o = listsOutcome) {
+            is PlaylistListsViewModel.Outcome.Imported -> stringResource(R.string.fork_lists_done_title) to
+                stringResource(R.string.fork_lists_done_body, o.hiddenCategories, o.hiddenItems, o.renamed, o.reordered)
+            PlaylistListsViewModel.Outcome.NotAnEditsFile -> stringResource(R.string.fork_lists_bad_title) to stringResource(R.string.fork_lists_bad_body)
+            PlaylistListsViewModel.Outcome.ImportFailed -> stringResource(R.string.fork_lists_failed_title) to stringResource(R.string.fork_lists_failed_body)
+            PlaylistListsViewModel.Outcome.ExportFailed -> stringResource(R.string.fork_lists_failed_title) to stringResource(R.string.fork_lists_export_failed_body)
+            else -> null
+        }
+        listsMessage?.let { (title, body) ->
+            ListsMessagePopup(title, body, onOk = { listsVm.clearOutcome(); listsExportFor = null })
         }
 
         nameCleanup?.let { src -> ChannelNameCleanupHost(src, onNeedsResync = { vm.resync(it) }, onDismiss = { nameCleanup = null }) }
@@ -409,6 +456,8 @@ private fun SourceRow(
     onTest: () -> Unit,
     onResync: () -> Unit,
     onCleanNames: () -> Unit,
+    onExportLists: () -> Unit,
+    onImportLists: () -> Unit,
     onCancelSync: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -450,6 +499,8 @@ private fun SourceRow(
             if (syncState.isActive) onCancelSync else onResync,
         ),
         StageAction(OwnTVIcon.SPARKLE, stringResource(R.string.settings_sources_clean_names), onCleanNames),
+        StageAction(OwnTVIcon.SEND, stringResource(R.string.fork_lists_export), onExportLists),
+        StageAction(OwnTVIcon.BACKUP, stringResource(R.string.fork_lists_import), onImportLists),
         StageAction(OwnTVIcon.TRASH, stringResource(R.string.settings_sources_delete), onDelete, danger = true),
     )
     StageSettingRow(
@@ -657,4 +708,22 @@ private fun SourceTestReport(result: SourceTestResult, limit: tv.own.owntv.core.
             Text(it, style = tv.own.owntv.ui.theme.stageText(17, 500), color = tv.own.owntv.ui.theme.StageColors.Muted)
         }
     }
+}
+
+/** The result of an Import edits / Export lists step: one message and an OK. */
+@Composable
+private fun ListsMessagePopup(title: String, body: String, onOk: () -> Unit) {
+    val okFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(60); runCatching { okFocus.requestFocus() } }
+    tv.own.owntv.ui.stage.StagePopup(
+        onDismiss = onOk,
+        title = title,
+        body = body,
+        buttons = {
+            tv.own.owntv.ui.stage.StageButton(
+                stringResource(R.string.common_ok), onClick = onOk, height = 56.mpx, textSize = 19, tinted = true,
+                modifier = Modifier.focusRequester(okFocus),
+            )
+        },
+    )
 }
