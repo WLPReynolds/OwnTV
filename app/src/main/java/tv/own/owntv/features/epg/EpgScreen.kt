@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
@@ -391,6 +392,9 @@ fun EpgScreen(
     var dayOpen by remember { mutableStateOf(false) }
     var sheetOpen by remember { mutableStateOf(false) }
     var sheetHadFocus by remember { mutableStateOf(false) }
+    // The sheet was opened by ◀ on a row (not by the Category button): Back and picking return to the grid.
+    var sheetFromGrid by remember { mutableStateOf(false) }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var searchOpen by remember { mutableStateOf(false) }
     // The field reports "not focused" when it first attaches; it only closes after it has had focus (playbook 10).
     var searchHadFocus by remember { mutableStateOf(false) }
@@ -470,7 +474,10 @@ fun EpgScreen(
         onDispose { onEntryHook?.invoke(null) }
     }
 
-    BackHandler(enabled = sheetOpen) { sheetOpen = false; runCatching { categoryTool.requestFocus() } }
+    BackHandler(enabled = sheetOpen) {
+        sheetOpen = false
+        if (sheetFromGrid) { sheetFromGrid = false; focusGrid() } else runCatching { categoryTool.requestFocus() }
+    }
     LaunchedEffect(sheetOpen) {
         if (sheetOpen) { withFrameNanos { }; runCatching { sheetFocus.requestFocus() } } else sheetHadFocus = false
     }
@@ -555,7 +562,7 @@ fun EpgScreen(
             StageTool(text = stringResource(R.string.content_epg_now_short), icon = OwnTVIcon.NOW, onClick = { showTime(System.currentTimeMillis()); cursorTime = System.currentTimeMillis() })
             StageTool(
                 text = null, icon = OwnTVIcon.LIST, value = categoryLabel, valueAccent = true, trailingIcon = OwnTVIcon.CHEVRON_DOWN,
-                onClick = { sheetOpen = true },
+                onClick = { sheetFromGrid = false; sheetOpen = true },
                 modifier = Modifier.focusRequester(categoryTool).widthIn(max = 380.mpx),
             )
             StageTool(
@@ -656,6 +663,7 @@ fun EpgScreen(
                                     selectedRow = focus.selectedRow,
                                     cursorTime = focus.cursorTime,
                                     cellMode = focus.cellMode,
+                                    onLeft = { sheetFromGrid = true; sheetOpen = true },
                                     onEnterCell = {
                                         cursorTime = System.currentTimeMillis()
                                         inCellMode = true
@@ -743,9 +751,30 @@ fun EpgScreen(
                     .padding(start = fx(24), top = 24.mpx, bottom = 24.mpx)
                     .width(fx(450))
                     .fillMaxHeight()
+                    .onKeyEvent { e ->
+                        // ◀ from the list goes on to the app menu, the way ◀ from a row used to: close the list,
+                        // put focus back on the row, then move it left.
+                        if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionLeft) {
+                            sheetOpen = false
+                            sheetFromGrid = false
+                            scope.launch {
+                                withFrameNanos { }
+                                runCatching { rowFocus(focusedRow.coerceIn(0, (state.channels.size - 1).coerceAtLeast(0))).requestFocus() }
+                                withFrameNanos { }
+                                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
+                            }
+                            true
+                        } else false
+                    }
                     .onFocusChanged {
-                        // Closes when focus leaves it — not on the "unfocused" report every node gets when it attaches.
-                        if (it.hasFocus) sheetHadFocus = true else if (sheetHadFocus && sheetOpen) sheetOpen = false
+                        // It stays open until Back, ▶, ◀ or a pick closes it. If focus slips off it by itself
+                        // (the list refreshing, say) it takes focus back rather than vanishing. Not on the
+                        // "unfocused" report every node gets when it attaches.
+                        if (it.hasFocus) sheetHadFocus = true
+                        else if (sheetHadFocus && sheetOpen) scope.launch {
+                            withFrameNanos { }
+                            if (sheetOpen) runCatching { sheetFocus.requestFocus() }
+                        }
                     },
             )
         }
@@ -884,6 +913,7 @@ private fun GuideRow(
     selectedRow: Boolean,
     cursorTime: Long,
     cellMode: Boolean,
+    onLeft: () -> Unit,
     onEnterCell: () -> Unit,
     recordingStarts: Set<Long>,
     reminderStarts: Set<Long>,
@@ -940,8 +970,9 @@ private fun GuideRow(
                         // The remote's Info key: Program details of the programme under the cursor.
                         Key.Info -> { if (down) onDetails(programmeAt(progs, cursorTime)); true }
                         // Physical by design: the timeline runs left to right in every language.
-                        // Row stage: ◀ leaves for the menu, ▶ steps into the programmes.
-                        Key.DirectionLeft -> if (!cellMode) false else {
+                        // Row stage: ◀ opens the category list (◀ again from there reaches the menu),
+                        // ▶ steps into the programmes.
+                        Key.DirectionLeft -> if (!cellMode) { if (down) onLeft(); true } else {
                             if (down) onCursor(cursorStep(progs, cursorTime, -1, windowStart, windowEnd))
                             true
                         }
@@ -1011,7 +1042,7 @@ private fun GuideKeyHints(cellMode: Boolean) {
         listOf(
             stringResource(R.string.common_ok) to stringResource(R.string.content_key_browse),
             "▲ ▼" to stringResource(R.string.content_key_channels),
-            "◀" to stringResource(R.string.content_key_menu),
+            "◀" to stringResource(R.string.content_key_categories),
             stringResource(R.string.content_key_hold_ok) to stringResource(R.string.content_key_options),
         )
     }
