@@ -596,10 +596,12 @@ fun EpgScreen(
             if (matching) {
                 Row(horizontalArrangement = Arrangement.spacedBy(9.mpx), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.mpx)) {
                     OwnTVSpinner(sizeDp = 18)
+                    val counts = java.text.NumberFormat.getIntegerInstance()
                     Text(
                         // "Matching… 1,200 / 8,000" once the scoring has a count.
-                        stringResource(R.string.content_epg_matching) +
-                            (matchProgress?.let { (done, total) -> " %,d / %,d".format(done, total) } ?: ""),
+                        matchProgress?.let { (done, total) ->
+                            stringResource(R.string.content_epg_matching_progress, counts.format(done), counts.format(total))
+                        } ?: stringResource(R.string.content_epg_matching),
                         style = stageText(18, 700), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             } else {
