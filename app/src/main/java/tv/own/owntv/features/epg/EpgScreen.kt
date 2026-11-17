@@ -217,6 +217,7 @@ fun EpgScreen(
     }
     val query by vm.query.collectAsStateWithLifecycle()
     val matching by vm.matching.collectAsStateWithLifecycle()
+    val matchProgress by vm.matchProgress.collectAsStateWithLifecycle()
     val review by vm.review.collectAsStateWithLifecycle()
     val matchSummary by vm.matchSummary.collectAsStateWithLifecycle()
     val sortGuide by vm.sortGuide.collectAsStateWithLifecycle()
@@ -595,7 +596,11 @@ fun EpgScreen(
             if (matching) {
                 Row(horizontalArrangement = Arrangement.spacedBy(9.mpx), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.mpx)) {
                     OwnTVSpinner(sizeDp = 18)
-                    Text(stringResource(R.string.content_epg_matching), style = stageText(18, 700), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        // "Matching… 1,200 / 8,000" once the scoring has a count.
+                        stringResource(R.string.content_epg_matching) +
+                            (matchProgress?.let { (done, total) -> " %,d / %,d".format(done, total) } ?: ""),
+                        style = stageText(18, 700), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             } else {
                 StageTool(text = stringResource(R.string.content_epg_match_button), icon = OwnTVIcon.SPARKLE, onClick = vm::autoMatchEpg)

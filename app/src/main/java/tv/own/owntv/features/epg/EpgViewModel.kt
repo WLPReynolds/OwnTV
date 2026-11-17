@@ -738,6 +738,34 @@ class EpgViewModel(
     private val _matching = MutableStateFlow(false)
     val matching: StateFlow<Boolean> = _matching.asStateFlow()
 
+    /** While a bulk run scores channels: (scored so far, to score). Null before the count is known and when idle. */
+    private val _matchProgress = MutableStateFlow<Pair<Int, Int>?>(null)
+    val matchProgress: StateFlow<Pair<Int, Int>?> = _matchProgress.asStateFlow()
+
+    /**
+     * Which channels a bulk run covers: the category the guide is showing, not the whole playlist. Null
+     * (everything) for All, and for any category kind not listed here.
+     */
+    private suspend fun matchScope(
+        pid: Long,
+        filter: tv.own.owntv.core.live.LiveKey?,
+    ): ((tv.own.owntv.core.database.entity.ChannelEntity) -> Boolean)? = when (filter) {
+        null, tv.own.owntv.core.live.LiveKey.All -> null
+        tv.own.owntv.core.live.LiveKey.Catchup -> channelTest { ch -> ch.catchup }
+        is tv.own.owntv.core.live.LiveKey.Folder -> channelTest { ch -> ch.categoryId == filter.id }
+        tv.own.owntv.core.live.LiveKey.Favorites ->
+            channelIn(favoriteDao.observeFavoriteIds(pid, MediaType.LIVE).first().toSet())
+        tv.own.owntv.core.live.LiveKey.History ->
+            channelIn(historyDao.getForProfileType(pid, MediaType.LIVE).mapTo(HashSet()) { it.itemId })
+        is tv.own.owntv.core.live.LiveKey.Custom ->
+            channelIn(customCategoryDao.itemIds(pid, MediaType.LIVE, filter.id).toSet())
+        else -> null
+    }
+
+    // Kotlin reads a bare { } after a when arrow as a block, so the predicates are built by these.
+    private fun channelTest(test: (tv.own.owntv.core.database.entity.ChannelEntity) -> Boolean) = test
+    private fun channelIn(ids: Set<Long>): (tv.own.owntv.core.database.entity.ChannelEntity) -> Boolean = { it.id in ids }
+
     /** Low-confidence suggestions awaiting the user's accept/skip (high-confidence ones auto-apply). */
     private val _review = MutableStateFlow<List<EpgMatchSuggestion>>(emptyList())
     val review: StateFlow<List<EpgMatchSuggestion>> = _review.asStateFlow()
@@ -800,7 +828,12 @@ class EpgViewModel(
                 if (playlistIds.isEmpty()) { _matchSummary.value = EpgMatchSummary.AddPlaylist; return@launch }
                 val cust = customize.observe(pid, MediaType.LIVE).first()
 
-                val outcome = autoMatcher.run(cust, playlistIds)
+                // Only the category the guide is showing; the count comes back as the channels are scored.
+                val outcome = autoMatcher.run(
+                    cust, playlistIds,
+                    only = matchScope(pid, _categoryFilter.value),
+                    onProgress = { done, total -> _matchProgress.value = done to total },
+                )
                 if (!outcome.hadCandidates) { finishRun(EpgMatchSummary.NoData); return@launch }
 
                 // Persist the confident hits — in one write, see [saveEpgMatches].
@@ -822,6 +855,7 @@ class EpgViewModel(
                 if (applied > 0) fillMatchedInBackground(outcome.applied.map { it.second }) // off the spinner
             } finally {
                 _matching.value = false
+                _matchProgress.value = null
             }
         }
     }
