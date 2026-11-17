@@ -13,7 +13,7 @@
     <string name="fork_lists_import_title" translatable="false">Receive edits from your computer</string>
     <string name="fork_lists_import_body" translatable="false">On a computer on the same Wi-Fi, open the address shown, enter the PIN and upload the file the editor saved.</string>
     <string name="fork_lists_done_title" translatable="false">Edits applied</string>
-    <string name="fork_lists_done_body" translatable="false">%1$d hidden categories, %2$d hidden channels or titles, %3$d renamed, %4$d moved. Check them in Customize categories &amp; items.</string>
+    <string name="fork_lists_done_body" translatable="false">Hidden categories: %1$d. Hidden channels or titles: %2$d. Renamed: %3$d. Moved: %4$d. Check them in Customize categories &amp; items.</string>
     <string name="fork_lists_bad_title" translatable="false">Not an edits file</string>
     <string name="fork_lists_bad_body" translatable="false">That file was not saved by the Slightly Good TV editor. Export the lists again, edit that file and save it.</string>
     <string name="fork_lists_failed_title" translatable="false">Something went wrong</string>
