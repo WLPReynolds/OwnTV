@@ -18,5 +18,5 @@
     <string name="fork_lists_bad_body" translatable="false">That file was not saved by the Slightly Good TV editor. Export the lists again, edit that file and save it.</string>
     <string name="fork_lists_failed_title" translatable="false">Something went wrong</string>
     <string name="fork_lists_failed_body" translatable="false">The edits could not be read or applied. Nothing was changed.</string>
-    <string name="fork_lists_export_failed_body" translatable="false">The lists could not be prepared for this playlist.</string>
+    <string name="fork_lists_export_failed_body" translatable="false">The lists could not be prepared for this playlist. Detail: %1$s</string>
 </resources>

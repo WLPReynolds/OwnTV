@@ -28,7 +28,7 @@ class PlaylistListsViewModel(
     sealed interface Outcome {
         data object None : Outcome
         data object Preparing : Outcome
-        data object ExportFailed : Outcome
+        data class ExportFailed(val detail: String) : Outcome
         data class Imported(val hiddenCategories: Int, val hiddenItems: Int, val renamed: Int, val reordered: Int) : Outcome
         /** The uploaded file is not a playlist edits file (for instance a whole backup was sent). */
         data object NotAnEditsFile : Outcome
@@ -52,7 +52,7 @@ class PlaylistListsViewModel(
                     companion.startForBackupDownload(CompanionLink.DEFAULT_PORT, file)
                     _outcome.value = Outcome.None
                 },
-                onFailure = { _outcome.value = Outcome.ExportFailed },
+                onFailure = { _outcome.value = Outcome.ExportFailed(it.toString().take(300)) },
             )
         }
     }

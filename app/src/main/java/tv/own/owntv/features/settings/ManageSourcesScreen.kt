@@ -385,7 +385,7 @@ fun ManageSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 stringResource(R.string.fork_lists_done_body, o.hiddenCategories, o.hiddenItems, o.renamed, o.reordered)
             PlaylistListsViewModel.Outcome.NotAnEditsFile -> stringResource(R.string.fork_lists_bad_title) to stringResource(R.string.fork_lists_bad_body)
             PlaylistListsViewModel.Outcome.ImportFailed -> stringResource(R.string.fork_lists_failed_title) to stringResource(R.string.fork_lists_failed_body)
-            PlaylistListsViewModel.Outcome.ExportFailed -> stringResource(R.string.fork_lists_failed_title) to stringResource(R.string.fork_lists_export_failed_body)
+            is PlaylistListsViewModel.Outcome.ExportFailed -> stringResource(R.string.fork_lists_failed_title) to stringResource(R.string.fork_lists_export_failed_body, o.detail)
             else -> null
         }
         listsMessage?.let { (title, body) ->
