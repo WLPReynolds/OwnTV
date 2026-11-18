@@ -126,15 +126,28 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var listPaneFocused by remember { mutableStateOf(false) }
 
-    LaunchedEffect(section) {
+    // Fork: Categories and the section's hidden items sit on two tabs above the list, so a long
+    // hidden list no longer has to be scrolled past to reach the categories. The tabs only appear
+    // when something is hidden; Categories is the tab shown on entry.
+    var hiddenTab by remember { mutableStateOf(false) }
+    val showTabs = hiddenChannels.isNotEmpty()
+    val tabsFocus = remember { FocusRequester() }
+    LaunchedEffect(showTabs) {
+        // The last hidden item was unhidden: drop back to Categories and keep focus on the tabs' place.
+        if (!showTabs && hiddenTab) {
+            hiddenTab = false
+            runCatching { firstFocus.requestFocus() }
+        }
+    }
+    LaunchedEffect(section, hiddenTab) {
         listState.scrollToItem(0)
     }
     // Index (within `rows`) of the category row that currently holds focus — the paging anchor.
     var focusedCatIndex by remember { mutableIntStateOf(0) }
     val rowFocusers = remember { mutableMapOf<String, FocusRequester>() }
-    // LazyColumn items before the category rows (hidden-items header + hidden rows + "Categories"
-    // header) — the offset that maps a category index to its LazyColumn item index.
-    val headerOffset = if (hiddenChannels.isNotEmpty()) hiddenChannels.size + 2 else 0
+    // LazyColumn items before the category rows (the "Categories" header) — the offset that maps a
+    // category index to its LazyColumn item index. Hidden items now live on their own tab.
+    val headerOffset = 1
 
     LaunchedEffect(Unit) {
         vm.setVisibilityFilter(CustomizeVisibilityFilter.ALL)
@@ -219,7 +232,26 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         },
         list = { pos ->
             Column(pos) {
-                if (rangeAnchorKey != null) {
+                if (showTabs) {
+                    tv.own.owntv.ui.stage.StageSegmented(
+                        options = listOf(
+                            stringResource(R.string.settings_customize_categories),
+                            stringResource(
+                                when (section) {
+                                    MediaType.LIVE -> R.string.settings_customize_hidden_channels
+                                    MediaType.MOVIE -> R.string.settings_customize_hidden_movies
+                                    else -> R.string.settings_customize_hidden_series
+                                },
+                            ),
+                        ),
+                        selected = if (hiddenTab) 1 else 0,
+                        onSelect = { hiddenTab = it == 1 },
+                        icons = listOf(OwnTVIcon.FOLDER, OwnTVIcon.EYE_OFF),
+                        modifier = Modifier.focusRequester(tabsFocus),
+                    )
+                    Spacer(Modifier.height(10.mpx))
+                }
+                if (rangeAnchorKey != null && !hiddenTab) {
                     StageSettingRow(
                         icon = OwnTVIcon.LAYERS,
                         title = when {
@@ -259,9 +291,9 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             },
                         ),
                 ) {
-                    // Hidden items of this section first (hidden via each section's long-press menu) — kept on
-                    // top so they're findable even when a provider has hundreds of categories below.
-                    if (hiddenChannels.isNotEmpty()) {
+                    // Hidden items of this section (hidden via each section's long-press menu) — on their
+                    // own tab, so hundreds of them never push the categories out of reach.
+                    if (showTabs && hiddenTab) {
                         item {
                             StageSettingsHeading(
                                 stringResource(
@@ -286,11 +318,11 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                 value = SettingValue.Action(unhide),
                                 onClick = { vm.unhideChannel(key) },
                                 help = SettingHelp(label.ifBlank { key }, stringResource(R.string.settings_customize_unhide_description), hints = settingHints(SettingValue.Action(unhide), pinnable = false)),
-                                modifier = if (hiddenIndex == 0) Modifier.upTo(firstFocus) else Modifier,
+                                modifier = if (hiddenIndex == 0) Modifier.upTo(tabsFocus) else Modifier,
                             )
                         }
-                    }
-                    item { StageSettingsHeading(stringResource(R.string.settings_customize_categories), rows.size, first = hiddenChannels.isEmpty()) }
+                    } else {
+                    item { StageSettingsHeading(stringResource(R.string.settings_customize_categories), rows.size, first = true) }
 
                     if (rows.isEmpty()) {
                         item { StageSettingsNote(stringResource(R.string.settings_customize_empty), null) }
@@ -305,7 +337,7 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             inRenameRange = inRenameRange,
                             isInSpan = isInSpan,
                             focusRequester = remember(row.key) { rowFocusers.getOrPut(row.key) { FocusRequester() } },
-                            upFocusRequester = firstFocus.takeIf { index == 0 && hiddenChannels.isEmpty() },
+                            upFocusRequester = if (index == 0) (if (showTabs) tabsFocus else firstFocus) else null,
                             actionsFocus = actionsFocus,
                             keepPanel = index == focusedCatIndex,
                             onRowFocused = { focusedCatIndex = index },
@@ -353,6 +385,7 @@ fun CustomizeScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             },
                         )
                     }
+                    } // else (Categories tab)
                 }
             }
         },

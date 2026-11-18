@@ -262,6 +262,11 @@ class EpgViewModel(
         _categoryFilter.value = key.takeUnless { it == tv.own.owntv.core.live.LiveKey.All }
     }
 
+    // Channels hidden from the guide's menus that a reload must keep out until it has read the store
+    // after their hide was written ([hiddenWritten]); then the store's own hidden list takes over, so an
+    // unhide in Settings brings the channel back as usual.
+    private val justHidden: MutableSet<Long> = java.util.Collections.synchronizedSet(HashSet())
+    private val hiddenWritten: MutableSet<Long> = java.util.Collections.synchronizedSet(HashSet())
     private val _state = MutableStateFlow(EpgUiState())
     val state: StateFlow<EpgUiState> = _state.asStateFlow()
 
@@ -594,11 +599,17 @@ class EpgViewModel(
     /** Add/remove a channel from Favourites directly from the Guide (channel long-press / detail). */
     /** Hide the channel from every list for this profile (undo: Settings → Customize → Hidden channels). */
     fun hideChannel(channel: ChannelEntity) {
+        // Fork: the row leaves the grid at once (the menu closes onto the next channel), instead of
+        // only after the next reload — switching category and back used to be the only way to see it go.
+        justHidden += channel.id
+        _state.value = _state.value.copy(channels = _state.value.channels.filterNot { it.id == channel.id })
         viewModelScope.launch {
             val pid = currentProfileId() ?: return@launch
             customize.setItemHidden(pid, MediaType.LIVE, CustomizeKeys.channel(channel), channel.name, true)
+            hiddenWritten += channel.id
         }
     }
+
 
     fun toggleFavoriteChannel(channel: ChannelEntity) {
         viewModelScope.launch {
@@ -994,7 +1005,10 @@ class EpgViewModel(
         val windowEnd = nowAligned + settings.guideDaysToKeep.first() * DAY_MS
 
         // Respect customizations: hidden channels stay out of the guide, renames show.
+        val hideSettled = synchronized(hiddenWritten) { hiddenWritten.toSet() }
         val cust = customize.observeVisible(pid, MediaType.LIVE).first()
+        // Hides written before that read are now in cust; only the ones still being written stay filtered.
+        justHidden.removeAll(hideSettled); hiddenWritten.removeAll(hideSettled)
         val q = _query.value.trim()
         val rawChannels = if (settings.guideShowEmpty.first()) channelDao.channelsForGuide(playlistIds, q, MAX_CHANNELS)
             else channelDao.channelsWithGuide(ids, q, MAX_CHANNELS)
@@ -1113,7 +1127,7 @@ class EpgViewModel(
             else -> null
         }
         _state.value = EpgUiState(
-            channels = channels, windowStart = windowStart, windowEnd = windowEnd, now = now,
+            channels = if (justHidden.isEmpty()) channels else channels.filterNot { it.id in justHidden }, windowStart = windowStart, windowEnd = windowEnd, now = now,
             loading = false, message = message, hasEpgSources = hasEpg,
         )
 
