@@ -495,6 +495,13 @@ fun OwnTVShell(
             tv.own.owntv.core.settings.StartupMode.LAST_CHANNEL -> {
                 val ch = liveVm.lastWatchedLiveChannel()
                 if (ch != null && playerMode == PlayerMode.NONE) {
+                    // The TV Guide goes underneath, on this channel's category, so Back from the
+                    // full-screen channel lands there rather than on Home. Nothing plays in it:
+                    // the full-screen player starts below.
+                    epgVm.setCategoryFilter(liveVm.railKeyOf(ch))
+                    epgVm.noteChannelTuned(ch)
+                    restoreFocus = true
+                    onSelectSection(MainSection.EPG)
                     zapSource = MainSection.LIVE_TV
                     // There is no caller-owned browse rail here. Let LiveViewModel build the channel's
                     // provider context instead of permanently arming a one-item list that disables CH+/CH-.
