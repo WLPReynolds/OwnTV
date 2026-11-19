@@ -470,9 +470,12 @@ fun EpgScreen(
     val catListState = rememberLazyListState()
 
     DisposableEffect(onEntryHook) {
+        // Right from the side menu lands on the toolbar's first option (Today), so Search is a few steps
+        // along instead of a climb back up through the channels. The row left is kept for Back from the player.
         onEntryHook?.invoke {
-            state.channels.isNotEmpty() &&
-                runCatching { rowFocus(focusedRow.coerceIn(0, state.channels.size - 1)).requestFocus() }.getOrDefault(false)
+            runCatching { dayTool.requestFocus() }.getOrDefault(false) ||
+                (state.channels.isNotEmpty() &&
+                    runCatching { rowFocus(focusedRow.coerceIn(0, state.channels.size - 1)).requestFocus() }.getOrDefault(false))
         }
         onDispose { onEntryHook?.invoke(null) }
     }
