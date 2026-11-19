@@ -441,6 +441,8 @@ fun EpgScreen(
         onPlayFromStart = { playFromStart(ch, p) },
         onPickEpg = { matchingChannel = ch },
         onEpgOffset = { offsetChannel = ch },
+        onMove = { d -> scope.launch { vm.moveChannel(ch, d)?.let { focusedRow = it } } },
+        moveAvailable = vm.canMoveChannels(),
     )
 
     // Channel names as the rows show them: provider tags parsed off, and the category's own name left out
@@ -839,6 +841,8 @@ fun EpgScreen(
             onAutoMatch = { vm.autoMatchOne(ch) },
             onPickEpg = { matchingChannel = ch },
             onEpgOffset = { offsetChannel = ch },
+            onMove = { d -> scope.launch { vm.moveChannel(ch, d)?.let { focusedRow = it } } },
+            moveAvailable = vm.canMoveChannels(),
             onDismiss = { channelMenuFor = null },
         )
     }

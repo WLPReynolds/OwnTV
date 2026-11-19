@@ -19,4 +19,7 @@
     <string name="fork_lists_failed_title" translatable="false">Something went wrong</string>
     <string name="fork_lists_failed_body" translatable="false">The edits could not be read or applied. Nothing was changed.</string>
     <string name="fork_lists_export_failed_body" translatable="false">The lists could not be prepared for this playlist. Detail: %1$s</string>
+    <string name="fork_move_up" translatable="false">Move channel up</string>
+    <string name="fork_move_down" translatable="false">Move channel down</string>
+    <string name="fork_move_hint" translatable="false">Open a category first</string>
 </resources>

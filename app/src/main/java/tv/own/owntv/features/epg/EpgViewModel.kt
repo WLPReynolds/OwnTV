@@ -118,6 +118,7 @@ class EpgViewModel(
     private val historyDao: tv.own.owntv.core.database.dao.HistoryDao,
     private val reminderManager: tv.own.owntv.core.reminder.ReminderManager,
     private val archiveGuide: tv.own.owntv.core.epg.ArchiveGuideFiller,
+    private val contentOrderDao: tv.own.owntv.core.database.dao.ContentOrderDao,
 ) : ViewModel() {
 
     /** The categories' search text, held here so it survives the player (see LiveViewModel). */
@@ -956,6 +957,40 @@ class EpgViewModel(
      * an OutOfMemoryError. Cancelling the one in progress makes the answer the latest one rather than
      * a race between six stale ones, and the mutex closes the gap while a cancelled load unwinds.
      */
+    /** Moving a channel by hand needs a list with a saved order: a provider folder, a custom category or
+     *  Favourites, in the Provider or A–Z order (Catch-up first and Favourites first reshuffle it). */
+    fun canMoveChannels(): Boolean {
+        val f = _categoryFilter.value
+        val listOk = f is tv.own.owntv.core.live.LiveKey.Folder || f is tv.own.owntv.core.live.LiveKey.Custom ||
+            f == tv.own.owntv.core.live.LiveKey.Favorites
+        val sortOk = sortGuide.value.let {
+            it == SettingsRepository.GuideSort.PROVIDER || it == SettingsRepository.GuideSort.ALPHA || it == SettingsRepository.GuideSort.LIVE_TV
+        }
+        return listOk && sortOk
+    }
+
+    /** One step of [delta] (-1 up, +1 down) in the list on screen, saved like Live TV's Move up/down.
+     *  Returns the row the channel is on afterwards, or null when it could not move. */
+    suspend fun moveChannel(channel: ChannelEntity, delta: Int): Int? {
+        if (!canMoveChannels()) return null
+        val pid = currentProfileId() ?: return null
+        val filter = _categoryFilter.value
+        val contextKey = when (filter) {
+            is tv.own.owntv.core.live.LiveKey.Folder -> categoryDao.getById(filter.id)?.let(CustomizeKeys::category)
+            is tv.own.owntv.core.live.LiveKey.Custom -> filter.id
+            tv.own.owntv.core.live.LiveKey.Favorites -> tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT
+            else -> null
+        } ?: return null
+        val order = _state.value.channels.map { it.id }.toMutableList()
+        val from = order.indexOf(channel.id)
+        val to = from + delta
+        if (from < 0 || to !in order.indices) return null
+        order.add(to, order.removeAt(from))
+        contentOrderDao.saveMove(pid, MediaType.LIVE, contextKey, order, setOf(channel.id))
+        runLoad() // the list on screen follows at once; the Live TV list reads the same saved order
+        return _state.value.channels.indexOfFirst { it.id == channel.id }.takeIf { it >= 0 }
+    }
+
     fun load() {
         val previous = loadJob
         loadJob = viewModelScope.launch {

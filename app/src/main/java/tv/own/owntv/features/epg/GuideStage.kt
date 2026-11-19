@@ -333,6 +333,10 @@ internal class GuideProgrammeActions(
     val onAutoMatch: (() -> Unit)?,
     val epgOffsetValue: String?,
     val onEpgOffset: (() -> Unit)?,
+    /** Move this channel one step (-1 up, +1 down) in the guide; null where the menu has no such row
+     *  (Live TV's schedule). [moveAvailable] false shows the rows with a hint instead. */
+    val onMove: ((Int) -> Unit)? = null,
+    val moveAvailable: Boolean = false,
 )
 
 /**
@@ -353,6 +357,8 @@ internal fun guideProgrammeActions(
     onEpgOffset: () -> Unit,
     /** Only where the review popup is on screen to show the result (the guide, not Live TV's list). */
     autoMatch: Boolean = true,
+    onMove: ((Int) -> Unit)? = null,
+    moveAvailable: Boolean = false,
 ): GuideProgrammeActions {
     val recordingRows by vm.recordingRows.collectAsStateWithLifecycle()
     val reminderRows by vm.reminderRows.collectAsStateWithLifecycle()
@@ -396,6 +402,8 @@ internal fun guideProgrammeActions(
         epgOffsetValue = vm.currentEpgShift(ch)?.let { tv.own.owntv.features.live.liveEpgShiftLabel(it) }
             ?: stringResource(R.string.content_epg_offset_global_short),
         onEpgOffset = onEpgOffset,
+        onMove = onMove,
+        moveAvailable = moveAvailable,
     )
 }
 
@@ -485,6 +493,19 @@ internal fun GuideProgrammeMenu(title: String, subtitle: String, actions: GuideP
             text = stringResource(R.string.content_hide_channel), icon = OwnTVIcon.EYE_OFF,
             onClick = { actions.onHide(); onDismiss() },
         )
+        if (actions.onMove != null) {
+            val avail = actions.moveAvailable
+            StageMenuItem(
+                text = stringResource(R.string.fork_move_up), icon = OwnTVIcon.SORT, enabled = avail,
+                value = if (avail) null else stringResource(R.string.fork_move_hint),
+                onClick = { actions.onMove?.invoke(-1) },
+            )
+            StageMenuItem(
+                text = stringResource(R.string.fork_move_down), icon = OwnTVIcon.SORT, enabled = avail,
+                value = if (avail) null else stringResource(R.string.fork_move_hint),
+                onClick = { actions.onMove?.invoke(1) },
+            )
+        }
         if (actions.onAutoMatch != null) {
             StageMenuItem(text = stringResource(R.string.content_epg_match_button), icon = OwnTVIcon.SPARKLE, onClick = { onDismiss(); actions.onAutoMatch.invoke() })
         }
@@ -574,6 +595,8 @@ internal fun GuideChannelMenu(
     onAutoMatch: () -> Unit,
     onPickEpg: () -> Unit,
     onEpgOffset: () -> Unit,
+    onMove: ((Int) -> Unit)? = null,
+    moveAvailable: Boolean = false,
     onDismiss: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
@@ -592,6 +615,19 @@ internal fun GuideChannelMenu(
             icon = OwnTVIcon.FAVORITE, onClick = { onFavorite(); onDismiss() },
         )
         StageMenuItem(text = stringResource(R.string.content_hide_channel), icon = OwnTVIcon.EYE_OFF, onClick = { onHide(); onDismiss() })
+        if (onMove != null) {
+            val avail = moveAvailable
+            StageMenuItem(
+                text = stringResource(R.string.fork_move_up), icon = OwnTVIcon.SORT, enabled = avail,
+                value = if (avail) null else stringResource(R.string.fork_move_hint),
+                onClick = { onMove?.invoke(-1) },
+            )
+            StageMenuItem(
+                text = stringResource(R.string.fork_move_down), icon = OwnTVIcon.SORT, enabled = avail,
+                value = if (avail) null else stringResource(R.string.fork_move_hint),
+                onClick = { onMove?.invoke(1) },
+            )
+        }
         StageMenuItem(text = stringResource(R.string.content_epg_match_button), icon = OwnTVIcon.SPARKLE, onClick = { onDismiss(); onAutoMatch() })
         StageMenuItem(text = stringResource(R.string.content_epg_pick_manually), icon = OwnTVIcon.EPG, onClick = { onDismiss(); onPickEpg() })
         StageMenuItem(text = stringResource(R.string.content_epg_time_offset), icon = OwnTVIcon.CLOCK, value = epgOffsetValue, onClick = { onDismiss(); onEpgOffset() })
