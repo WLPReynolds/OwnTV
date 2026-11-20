@@ -969,8 +969,11 @@ class EpgViewModel(
         return listOk && sortOk
     }
 
-    /** One step of [delta] (-1 up, +1 down) in the list on screen, saved like Live TV's Move up/down.
-     *  Returns the row the channel is on afterwards, or null when it could not move. */
+    private val moveSaves = kotlinx.coroutines.sync.Mutex()
+
+    /** One step of [delta] (-1 up, +1 down) in the list on screen. The list on screen changes at once and
+     *  the order is saved behind it, in press order, like Live TV's Move up/down (which reads the same
+     *  saved order). Returns the row the channel is on afterwards, or null when it could not move. */
     suspend fun moveChannel(channel: ChannelEntity, delta: Int): Int? {
         if (!canMoveChannels()) return null
         val pid = currentProfileId() ?: return null
@@ -981,14 +984,15 @@ class EpgViewModel(
             tv.own.owntv.core.live.LiveKey.Favorites -> tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT
             else -> null
         } ?: return null
-        val order = _state.value.channels.map { it.id }.toMutableList()
-        val from = order.indexOf(channel.id)
+        val list = _state.value.channels.toMutableList()
+        val from = list.indexOfFirst { it.id == channel.id }
         val to = from + delta
-        if (from < 0 || to !in order.indices) return null
-        order.add(to, order.removeAt(from))
-        contentOrderDao.saveMove(pid, MediaType.LIVE, contextKey, order, setOf(channel.id))
-        runLoad() // the list on screen follows at once; the Live TV list reads the same saved order
-        return _state.value.channels.indexOfFirst { it.id == channel.id }.takeIf { it >= 0 }
+        if (from < 0 || to !in list.indices) return null
+        list.add(to, list.removeAt(from))
+        _state.value = _state.value.copy(channels = list)
+        val order = list.map { it.id }
+        viewModelScope.launch { moveSaves.withLock { contentOrderDao.saveMove(pid, MediaType.LIVE, contextKey, order, setOf(channel.id)) } }
+        return to
     }
 
     fun load() {
