@@ -77,7 +77,14 @@ jobs:
         working-directory: ./libmpv/buildscripts
         env:
           IN_CI: 1
-        run: ./download.sh
+        run: |
+          # Retry: external git servers occasionally have short outages.
+          for attempt in 1 2 3; do
+            if ./download.sh; then exit 0; fi
+            echo "download.sh failed (attempt $attempt of 3)"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 45)); fi
+          done
+          exit 1
 
       - name: Apply libmpv patches
         working-directory: ./libmpv/buildscripts
