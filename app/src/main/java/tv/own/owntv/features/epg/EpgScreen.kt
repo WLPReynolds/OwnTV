@@ -468,12 +468,17 @@ fun EpgScreen(
     val searchFocus = remember { FocusRequester() }
     val sheetFocus = remember { FocusRequester() }
     val catListState = rememberLazyListState()
+    val toolbarEntry = remember { object { var on = false } }
 
     DisposableEffect(onEntryHook) {
         // Right from the side menu lands on the toolbar's first option (Today), so Search is a few steps
         // along instead of a climb back up through the channels. The row left is kept for Back from the player.
         onEntryHook?.invoke {
-            runCatching { dayTool.requestFocus() }.getOrDefault(false) ||
+            // The screen redirects every entry from outside to the grid (onEnter below); this one is meant.
+            toolbarEntry.on = true
+            val landed = runCatching { dayTool.requestFocus() }.getOrDefault(false)
+            toolbarEntry.on = false
+            landed ||
                 (state.channels.isNotEmpty() &&
                     runCatching { rowFocus(focusedRow.coerceIn(0, state.channels.size - 1)).requestFocus() }.getOrDefault(false))
         }
@@ -497,7 +502,7 @@ fun EpgScreen(
             // outside too, and redirecting it would send focus to the grid instead.
             .focusProperties {
                 onEnter = {
-                    if (state.channels.isNotEmpty() && !(searchOpen && !searchHadFocus)) {
+                    if (state.channels.isNotEmpty() && !toolbarEntry.on && !(searchOpen && !searchHadFocus)) {
                         runCatching { rowFocus(focusedRow.coerceIn(0, state.channels.size - 1)).requestFocus() }
                     }
                 }
