@@ -325,6 +325,20 @@ fun EpgScreen(
             stepTarget = null
         }
     }
+    // Move a channel one place and keep it on screen, so repeated presses show where it lands.
+    fun moveChannelBy(ch: tv.own.owntv.core.database.entity.ChannelEntity, delta: Int) {
+        scope.launch {
+            val to = vm.moveChannel(ch, delta) ?: return@launch
+            focusedRow = to
+            withFrameNanos { }
+            withFrameNanos { }
+            val info = rowListState.layoutInfo
+            val row = info.visibleItemsInfo.firstOrNull { it.index == to }
+            if (row == null || row.offset < info.viewportStartOffset || row.offset + row.size > info.viewportEndOffset) {
+                runCatching { rowListState.scrollToItem((to - 1).coerceAtLeast(0)) }
+            }
+        }
+    }
     // Back to the grid at the row focus was on (after a menu, the sheet, a jump).
     fun focusGrid(row: Int = focusedRow) {
         val i = row.coerceIn(0, (state.channels.size - 1).coerceAtLeast(0))
@@ -441,7 +455,7 @@ fun EpgScreen(
         onPlayFromStart = { playFromStart(ch, p) },
         onPickEpg = { matchingChannel = ch },
         onEpgOffset = { offsetChannel = ch },
-        onMove = { d -> scope.launch { vm.moveChannel(ch, d)?.let { focusedRow = it } } },
+        onMove = { d -> moveChannelBy(ch, d) },
         moveAvailable = vm.canMoveChannels(),
     )
 
@@ -849,7 +863,7 @@ fun EpgScreen(
             onAutoMatch = { vm.autoMatchOne(ch) },
             onPickEpg = { matchingChannel = ch },
             onEpgOffset = { offsetChannel = ch },
-            onMove = { d -> scope.launch { vm.moveChannel(ch, d)?.let { focusedRow = it } } },
+            onMove = { d -> moveChannelBy(ch, d) },
             moveAvailable = vm.canMoveChannels(),
             onDismiss = { channelMenuFor = null },
         )

@@ -966,7 +966,8 @@ class EpgViewModel(
         val sortOk = sortGuide.value.let {
             it == SettingsRepository.GuideSort.PROVIDER || it == SettingsRepository.GuideSort.ALPHA || it == SettingsRepository.GuideSort.LIVE_TV
         }
-        return listOk && sortOk
+        // Favourites keeps its whole hand-made order whatever the sort chip says.
+        return listOk && (f == tv.own.owntv.core.live.LiveKey.Favorites || sortOk)
     }
 
     private val moveSaves = kotlinx.coroutines.sync.Mutex()
@@ -1080,7 +1081,8 @@ class EpgViewModel(
         // takes the order the Live TV queries give, moved channels in their place; elsewhere, All included,
         // the playlist's order or plain A–Z.
         val alphaSort = sortGuideMode == SettingsRepository.GuideSort.ALPHA
-        val liveTvSort = alphaSort || sortGuideMode == SettingsRepository.GuideSort.PROVIDER || sortGuideMode == SettingsRepository.GuideSort.LIVE_TV
+        val liveTvSort = alphaSort || sortGuideMode == SettingsRepository.GuideSort.PROVIDER || sortGuideMode == SettingsRepository.GuideSort.LIVE_TV ||
+            filter == tv.own.owntv.core.live.LiveKey.Favorites
         val liveOrder: Map<Long, Int>? = if (!liveTvSort) null else when (filter) {
             is tv.own.owntv.core.live.LiveKey.Folder -> folderKey?.let { channelDao.snapshotByCategoryManual(filter.id, pid, it, alphaSort, MAX_CHANNELS) }
             is tv.own.owntv.core.live.LiveKey.Custom -> customCategoryDao.snapshotChannels(pid, filter.id, playlistIds, alphaSort, MAX_CHANNELS)
@@ -1103,7 +1105,7 @@ class EpgViewModel(
             val byAlpha = compareBy<ChannelEntity> { it.name.lowercase() }
             val byProvider = compareBy<ChannelEntity>({ it.sourceId }, { it.sortOrder }, { it.name.lowercase() })
             val byLiveTv = liveOrder?.let { order -> compareBy<ChannelEntity> { order[it.id] ?: Int.MAX_VALUE }.then(if (alphaSort) byAlpha else byProvider) }
-            when (sortGuideMode) {
+            when (if (filter == tv.own.owntv.core.live.LiveKey.Favorites) SettingsRepository.GuideSort.LIVE_TV else sortGuideMode) {
                 SettingsRepository.GuideSort.ALPHA -> matched.sortedWith(byLiveTv ?: byAlpha)
                 SettingsRepository.GuideSort.PROVIDER -> matched.sortedWith(byLiveTv ?: byProvider)
                 SettingsRepository.GuideSort.CATCHUP -> matched.sortedWith(compareByDescending<ChannelEntity> { it.catchup }.then(byProvider))
