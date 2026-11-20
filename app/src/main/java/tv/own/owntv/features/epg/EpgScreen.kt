@@ -456,7 +456,7 @@ fun EpgScreen(
         onPickEpg = { matchingChannel = ch },
         onEpgOffset = { offsetChannel = ch },
         onMove = { d -> moveChannelBy(ch, d) },
-        moveAvailable = vm.canMoveChannels(),
+        moveAvailable = vm.canMoveChannels(ch),
     )
 
     // Channel names as the rows show them: provider tags parsed off, and the category's own name left out
@@ -864,7 +864,7 @@ fun EpgScreen(
             onPickEpg = { matchingChannel = ch },
             onEpgOffset = { offsetChannel = ch },
             onMove = { d -> moveChannelBy(ch, d) },
-            moveAvailable = vm.canMoveChannels(),
+            moveAvailable = vm.canMoveChannels(ch),
             onDismiss = { channelMenuFor = null },
         )
     }
