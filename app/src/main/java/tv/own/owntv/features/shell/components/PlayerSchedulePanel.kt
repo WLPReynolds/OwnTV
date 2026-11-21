@@ -103,22 +103,22 @@ internal fun PlayerSchedulePanel(
         // Header: the channel, as the TV guide names it.
         Row(horizontalArrangement = Arrangement.spacedBy(14.mpx), verticalAlignment = Alignment.CenterVertically) {
             channel.number?.let { n ->
-                Text(n.toString(), style = stageText(26, 800), color = StageColors.Muted, maxLines = 1)
+                Text(n.toString(), style = stageText(32, 800), color = StageColors.Muted, maxLines = 1)
             }
             Text(
                 ProviderTags.parse(channel.name).name,
-                style = stageText(26, 800), color = StageColors.Text,
+                style = stageText(32, 800), color = StageColors.Text,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
         when {
             programmes == null -> Text(
                 stringResource(R.string.fork_schedule_loading),
-                style = stageText(18, 400), color = StageColors.Dim,
+                style = stageText(22, 400), color = StageColors.Dim,
             )
             upcoming.isEmpty() -> Text(
                 stringResource(R.string.fork_schedule_none),
-                style = stageText(18, 400), color = StageColors.Dim,
+                style = stageText(22, 400), color = StageColors.Dim,
             )
             else -> {
                 // Summary of the programme on air: title, span, time left and progress.
@@ -128,17 +128,17 @@ internal fun PlayerSchedulePanel(
                         verticalArrangement = Arrangement.spacedBy(6.mpx),
                     ) {
                         Text(
-                            p.title, style = stageText(28, 800), color = StageColors.Text,
+                            p.title, style = stageText(36, 800), color = StageColors.Text,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(16.mpx), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 stringResource(R.string.fork_schedule_span, timeFormat.format(Date(p.startMs)), timeFormat.format(Date(p.stopMs))),
-                                style = stageText(18, 600), color = accent,
+                                style = stageText(22, 600), color = accent,
                             )
                             Text(
                                 stringResource(R.string.fork_schedule_left, ((p.stopMs - now) / 60_000L).coerceAtLeast(1L).toString()),
-                                style = stageText(18, 500), color = StageColors.Muted,
+                                style = stageText(22, 500), color = StageColors.Muted,
                             )
                         }
                         val total = (p.stopMs - p.startMs).coerceAtLeast(1L)
@@ -158,19 +158,19 @@ internal fun PlayerSchedulePanel(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.mpx)) {
                             Text(
                                 timeFormat.format(Date(p.startMs)),
-                                style = stageText(18, if (live) 700 else 500),
+                                style = stageText(22, if (live) 700 else 500),
                                 color = if (live) accent else StageColors.Muted,
-                                modifier = Modifier.width(84.mpx),
+                                modifier = Modifier.width(104.mpx),
                             )
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.mpx)) {
                                 Text(
-                                    p.title, style = stageText(18, if (live) 700 else 500),
+                                    p.title, style = stageText(22, if (live) 700 else 500),
                                     color = if (live) accent else StageColors.Text,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
                                 p.description?.takeIf { it.isNotBlank() }?.let { d ->
                                     Text(
-                                        d, style = stageText(16, 400), color = StageColors.Dim,
+                                        d, style = stageText(20, 400), color = StageColors.Dim,
                                         maxLines = if (live) 3 else 2, overflow = TextOverflow.Ellipsis,
                                     )
                                 }
@@ -184,4 +184,4 @@ internal fun PlayerSchedulePanel(
 }
 
 /** How many programmes the pane lists; each has room for a line or two of synopsis. */
-private const val SHOWN = 8
+private const val SHOWN = 7

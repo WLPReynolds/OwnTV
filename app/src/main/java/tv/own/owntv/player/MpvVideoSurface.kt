@@ -232,7 +232,18 @@ fun ExoPreviewSurface(
                             })
                         }
                     },
-                    update = { it.keepScreenOn = keepAwake },
+                    update = { v ->
+                        v.keepScreenOn = keepAwake
+                        // A SurfaceView is a hole in the window that the system positions at layout time. After
+                        // the surface moves from the preview pane to full screen it has been seen keeping the
+                        // pane's small rectangle (picture stuck in a corner, the rest black). Ask for one fresh
+                        // layout whenever the box it lives in changes size, so the hole is placed again.
+                        val box = "$maxWidth/$maxHeight"
+                        if (v.tag != box) {
+                            v.tag = box
+                            v.post { v.requestLayout(); v.invalidate() }
+                        }
+                    },
                 )
             }
         }

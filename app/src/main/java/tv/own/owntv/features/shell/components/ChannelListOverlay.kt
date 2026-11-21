@@ -147,9 +147,8 @@ fun ChannelListOverlay(
                 channel = focusedChannel ?: channels.getOrNull(currentIndex),
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = 756.mpx, top = 22.mpx, bottom = 22.mpx)
-                    .fillMaxHeight()
-                    .width(640.mpx),
+                    .padding(start = 756.mpx, end = 20.mpx, top = 22.mpx, bottom = 22.mpx)
+                    .fillMaxSize(),
             )
         }
     }
