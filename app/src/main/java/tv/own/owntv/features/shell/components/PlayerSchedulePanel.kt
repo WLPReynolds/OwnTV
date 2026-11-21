@@ -87,11 +87,16 @@ internal fun PlayerSchedulePanel(
         verticalArrangement = Arrangement.spacedBy(8.mpx),
     ) {
         // Header: the channel, as the TV guide names it.
-        Text(
-            listOfNotNull(channel.number?.toString(), ProviderTags.parse(channel.name).name).joinToString("  "),
-            style = stageText(26, 800), color = StageColors.Text,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(14.mpx), verticalAlignment = Alignment.CenterVertically) {
+            channel.number?.let { n ->
+                Text(n.toString(), style = stageText(26, 800), color = StageColors.Muted, maxLines = 1)
+            }
+            Text(
+                ProviderTags.parse(channel.name).name,
+                style = stageText(26, 800), color = StageColors.Text,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
         when {
             programmes == null -> Text(
                 stringResource(R.string.fork_schedule_loading),
