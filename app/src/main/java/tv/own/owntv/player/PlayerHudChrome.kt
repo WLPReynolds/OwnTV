@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -365,6 +366,8 @@ internal fun BottomBar(
     onPreviousChannel: (() -> Unit)? = null,
     onOtherChannels: (() -> Unit)? = null, otherChannelsCount: Int = 0,
     hasSources: Boolean = false,
+    /** Live only: opens the channel list with its programme pane. Leads the row; Down from the timeline lands on it. */
+    onOpenGuide: (() -> Unit)? = null,
     onOpenDialog: (HudDialog) -> Unit, onPip: (() -> Unit)?, onAudioMode: (() -> Unit)?,
     onMultiview: (() -> Unit)? = null, onRecordThis: (() -> Unit)? = null, recordingThis: Boolean = false,
     /** Given to whichever timeline is drawn, so Left/Right with the controls hidden can land on it. */
@@ -415,8 +418,21 @@ internal fun BottomBar(
         // slack a focused button expands into, so growth is always toward the centre: the left cluster
         // pushes only the buttons to its right, the right cluster only those to its left. Walk either
         // cluster outward-in and nothing you have already passed ever moves.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().focusGroup()) {
+        val guideFocus = androidx.compose.runtime.remember { FocusRequester() }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+                // Down from the timeline lands on the TV guide button rather than the control nearest the centre.
+                .then(
+                    if (onOpenGuide != null) Modifier.focusProperties { onEnter = { runCatching { guideFocus.requestFocus() } } }
+                    else Modifier,
+                )
+                .focusGroup(),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onOpenGuide != null) {
+                    CtrlButton(OwnTVIcon.EPG, label = stringResource(R.string.fork_player_guide), modifier = Modifier.focusRequester(guideFocus)) { onOpenGuide() }
+                }
                 // The ORDER comes from core's canonical list, not from the order these lines
                 // happen to be written in. Each control keeps its own composable and its own
                 // condition; only the sequence is shared, which is what makes this bar and the

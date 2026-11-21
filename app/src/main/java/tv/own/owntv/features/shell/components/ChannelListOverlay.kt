@@ -88,9 +88,12 @@ fun ChannelListOverlay(
     /** History only: channel id → when it was last watched, shown at the row's end. */
     watchedAt: Map<Long, Long>? = null,
     onOpenCategories: (() -> Unit)? = null,
+    /** Live player only: a pane beside the list showing the highlighted channel's programmes. */
+    showSchedule: Boolean = false,
 ) {
     val history = watchedAt != null
     val playingIndex = remember(channels, currentId) { channels.indexOfFirst { it.id == currentId } }
+    var focusedChannel by remember(channels) { mutableStateOf<ChannelEntity?>(null) }
     val currentIndex = remember(channels, playingIndex, history) {
         when {
             history && playingIndex == 0 && channels.size > 1 -> 1
@@ -125,6 +128,7 @@ fun ChannelListOverlay(
             outward = if (alignEnd) HorizontalDirection.END else HorizontalDirection.START,
             // Pushing outward from the Start panel opens categories when they are wired; pushing outward
             // from the End panel closes it. Back always closes.
+            onFocusChannel = { focusedChannel = it },
             onOutward = if (!alignEnd && onOpenCategories != null) onOpenCategories else onDismiss,
             // Outward is ◀ on the left sheet, ▶ on the right one (Multiview's picker goes back to categories).
             outwardHint = when {
@@ -138,6 +142,15 @@ fun ChannelListOverlay(
                 .fillMaxHeight()
                 .width(if (history) 760.mpx else 720.mpx),
         )
+        if (showSchedule && !alignEnd && !history) {
+            PlayerSchedulePanel(
+                channel = focusedChannel ?: channels.getOrNull(currentIndex),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 756.mpx)
+                    .width(560.mpx),
+            )
+        }
     }
 }
 

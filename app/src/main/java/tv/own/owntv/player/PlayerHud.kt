@@ -722,6 +722,7 @@ fun PlayerHud(
                     onPreviousChannel = onPreviousChannel,
                     onOtherChannels = onOtherChannels, otherChannelsCount = otherChannelsCount,
                     hasSources = sources != null,
+                    onOpenGuide = if (isLive) onOpenChannelList?.let { open -> { controlsVisible = false; open() } } else null,
                     compatMode = compatMode, onToggleCompatMode = toggleCompat,
                     vodOnExo = vodOnExo, onToggleVodEngine = toggleVod,
                     onInfo = { showInfo = !showInfo }, infoOn = showInfo,

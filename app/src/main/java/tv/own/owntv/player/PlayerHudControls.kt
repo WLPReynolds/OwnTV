@@ -349,6 +349,7 @@ internal fun CtrlButton(
     value: String? = null,
     // OK held. Null = a hold is a press.
     onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     StageSurface(
@@ -356,7 +357,7 @@ internal fun CtrlButton(
         onLongClick = onLongClick,
         radius = 12.dp,
         // A square 44 dp while collapsed; focus lets it grow sideways to fit its label.
-        modifier = Modifier.height(44.dp).widthIn(min = 44.dp),
+        modifier = modifier.height(44.dp).widthIn(min = 44.dp),
         // Focus as light: the accent rim, a wash of it and a soft glow, all from the accent that reads over video.
         focusStyle = StageFocus.FX,
         accent = hudFocus(ring = hudAccent),

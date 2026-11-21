@@ -1983,6 +1983,7 @@ fun OwnTVShell(
                             onSelect = { liveVm.ensurePlaying(it); showChannelList = false },
                             onDismiss = { showChannelList = false },
                             onOpenCategories = { liveVm.openChannelBrowser() },
+                            showSchedule = true,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

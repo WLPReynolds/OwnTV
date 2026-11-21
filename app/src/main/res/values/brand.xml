@@ -22,4 +22,7 @@
     <string name="fork_move_up" translatable="false">Move channel up</string>
     <string name="fork_move_down" translatable="false">Move channel down</string>
     <string name="fork_move_hint" translatable="false">Not in this view</string>
+    <string name="fork_schedule_loading" translatable="false">Loading programmes…</string>
+    <string name="fork_schedule_none" translatable="false">No programme information</string>
+    <string name="fork_player_guide" translatable="false">TV guide</string>
 </resources>
