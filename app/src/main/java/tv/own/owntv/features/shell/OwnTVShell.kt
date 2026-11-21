@@ -638,7 +638,7 @@ fun OwnTVShell(
         subtitleController.clear() // leaving the player drops the OpenSubtitles item context
         if (selectedSection != MainSection.LIVE_TV) liveVm.clearLiveOnExo()
         // Closing back into a guide: it focuses the channel that was playing (zapped-to included).
-        epgVm.playerClosed = selectedSection == MainSection.EPG ||
+        epgVm.playerClosed = selectedSection == MainSection.EPG || selectedSection == MainSection.FAVOURITES ||
             (selectedSection == MainSection.LIVE_TV && liveVm.liveView.value == tv.own.owntv.core.settings.SettingsRepository.LiveView.GUIDE)
         restoreFocus = true
         focusRail()
@@ -936,7 +936,7 @@ fun OwnTVShell(
     // The preview runs on the ExoPlayer live engine, not mpv: stopping only mpv here (as when the preview
     // was mpv) left it decoding and holding a provider connection after a shortcut or deep link out.
     LaunchedEffect(selectedSection, playerMode) {
-        if (selectedSection != MainSection.LIVE_TV && selectedSection != MainSection.EPG && playerMode == PlayerMode.NONE) liveVm.stopPreview()
+        if (selectedSection != MainSection.LIVE_TV && selectedSection != MainSection.EPG && selectedSection != MainSection.FAVOURITES && playerMode == PlayerMode.NONE) liveVm.stopPreview()
         if (selectedSection != MainSection.HOME || playerMode != PlayerMode.NONE) homeVm.stopPreview()
     }
 
@@ -1433,6 +1433,23 @@ fun OwnTVShell(
                             modifier = Modifier.fillMaxSize(),
                         )
 
+                        // Favourites: the guide fixed to the profile's favourite channels, in their own order.
+                        selectedSection == MainSection.FAVOURITES -> EpgScreen(
+                            onFullscreen = { openFullscreen() },
+                            onPlayChannel = guidePlayChannel,
+                            onPlayCatchup = guidePlayCatchup,
+                            previewEnabled = playerMode == PlayerMode.NONE,
+                            favouritesMode = true,
+                            onEntryHook = { guideEntry = it },
+                            onAddEpg = { openEpgAdd = true; onSelectSection(MainSection.SETTINGS) },
+                            restoreFocus = restoreFocus,
+                            onRestored = { restoreFocus = false },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .onFocusChanged { if (it.hasFocus) focusedLayer = ShellLayer.CONTENT }
+                                .focusGroup(),
+                        )
+
                         selectedSection == MainSection.EPG -> EpgScreen(
                             onFullscreen = { openFullscreen() },
                             onPlayChannel = guidePlayChannel,
@@ -1502,7 +1519,7 @@ fun OwnTVShell(
                 contentFocusRequester = contentAreaFocus,
                 enterContent = when (selectedSection) {
                     MainSection.HOME -> homeEntry
-                    MainSection.EPG, MainSection.LIVE_TV -> guideEntry
+                    MainSection.EPG, MainSection.LIVE_TV, MainSection.FAVOURITES -> guideEntry
                     MainSection.MOVIES, MainSection.SERIES -> vodEntry
                     MainSection.DOWNLOADS -> downloadsEntry
                     MainSection.MORE -> moreEntry
@@ -2066,7 +2083,7 @@ fun OwnTVShell(
     val epgMatchToast = tv.own.owntv.ui.components.rememberInAppToast()
     val shellLiveView by liveVm.liveView.collectAsStateWithLifecycle()
     val guideOnScreen = playerMode != PlayerMode.FULLSCREEN && multiview == null &&
-        (selectedSection == MainSection.EPG ||
+        (selectedSection == MainSection.EPG || selectedSection == MainSection.FAVOURITES ||
             (selectedSection == MainSection.LIVE_TV && shellLiveView == tv.own.owntv.core.settings.SettingsRepository.LiveView.GUIDE))
     val currentGuideOnScreen by rememberUpdatedState(guideOnScreen)
     var finishedMatch by remember { mutableStateOf<tv.own.owntv.features.epg.EpgMatchSummary?>(null) }

@@ -2,6 +2,7 @@
 
 package tv.own.owntv.features.epg
 
+import tv.own.owntv.core.live.serialize
 import tv.own.owntv.core.epg.displayLogoUrl
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -258,6 +259,9 @@ class EpgViewModel(
         settings.guideWidthShares,
     ) { enabled, shares -> shares.takeIf { enabled } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** The TV Guide's own category while the side menu's Favourites borrows this view model. */
+    var guideCategoryBeforeFavourites: tv.own.owntv.core.live.LiveKey? = null
 
     fun setCategoryFilter(key: tv.own.owntv.core.live.LiveKey?) {
         _categoryFilter.value = key.takeUnless { it == tv.own.owntv.core.live.LiveKey.All }
@@ -959,50 +963,89 @@ class EpgViewModel(
      */
     /** Moving a channel by hand needs a list with a saved order: a provider folder, a custom category or
      *  Favourites, in the Provider or A–Z order (Catch-up first and Favourites first reshuffle it). */
-    fun canMoveChannels(channel: ChannelEntity? = null): Boolean {
-        val f = _categoryFilter.value
-        val sort = sortGuide.value
-        // Favourites first: the favourites on top can be put in order among themselves.
-        if (sort == SettingsRepository.GuideSort.FAVORITES && f !is tv.own.owntv.core.live.LiveKey.Folder && f !is tv.own.owntv.core.live.LiveKey.Custom) {
-            return channel != null && channel.id in favouriteIdsOnScreen
-        }
-        val listOk = f is tv.own.owntv.core.live.LiveKey.Folder || f is tv.own.owntv.core.live.LiveKey.Custom ||
-            f == tv.own.owntv.core.live.LiveKey.Favorites
-        val sortOk = sort == SettingsRepository.GuideSort.PROVIDER || sort == SettingsRepository.GuideSort.ALPHA || sort == SettingsRepository.GuideSort.LIVE_TV
-        // Favourites keeps its whole hand-made order whatever the sort chip says.
-        return listOk && (f == tv.own.owntv.core.live.LiveKey.Favorites || sortOk)
-    }
+    /**
+     * Move up/down works on every channel in every guide view. Folders, custom categories and Favourites
+     * keep the order Live TV shares with the guide; any other view (All channels, Catch-up, History, the
+     * Catch-up or Favourites-first sorts) keeps a guide order of its own. In Favourites first the
+     * favourites on top move among themselves and the other channels among themselves.
+     */
+    fun canMoveChannels(channel: ChannelEntity? = null): Boolean = _query.value.isBlank()
 
     private val moveSaves = kotlinx.coroutines.sync.Mutex()
     @Volatile private var favouriteIdsOnScreen: Set<Long> = emptySet()
 
+    /** Where the list on screen saves its order. [nonFavourite]: the channels under the favourites in
+     *  Favourites first. Null when the view has nothing to save against (a folder that has gone). */
+    private suspend fun moveContext(filter: tv.own.owntv.core.live.LiveKey?, sort: SettingsRepository.GuideSort, nonFavourite: Boolean): String? {
+        val favouritesFirst = sort == SettingsRepository.GuideSort.FAVORITES && filter != tv.own.owntv.core.live.LiveKey.Favorites
+        val liveTvSort = sort == SettingsRepository.GuideSort.PROVIDER || sort == SettingsRepository.GuideSort.ALPHA || sort == SettingsRepository.GuideSort.LIVE_TV
+        val folderKey = (filter as? tv.own.owntv.core.live.LiveKey.Folder)?.let { categoryDao.getById(it.id) }?.let(CustomizeKeys::category)
+        return when {
+            filter == tv.own.owntv.core.live.LiveKey.Favorites -> tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT
+            favouritesFirst && !nonFavourite -> tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT
+            liveTvSort && filter is tv.own.owntv.core.live.LiveKey.Folder -> folderKey
+            liveTvSort && filter is tv.own.owntv.core.live.LiveKey.Custom -> filter.id
+            else -> {
+                // The guide's own order for this view. A folder is named by its stable key, so a playlist
+                // refresh (new database ids) keeps it.
+                val view = if (filter is tv.own.owntv.core.live.LiveKey.Folder) (folderKey ?: return null) else (filter ?: tv.own.owntv.core.live.LiveKey.All).serialize()
+                GuideOrderKeys.of(view, sort.name)
+            }
+        }
+    }
+
     /** One step of [delta] (-1 up, +1 down) in the list on screen. The list on screen changes at once and
-     *  the order is saved behind it, in press order, like Live TV's Move up/down (which reads the same
-     *  saved order). Returns the row the channel is on afterwards, or null when it could not move. */
+     *  the order is saved behind it, in press order. Returns the row the channel is on afterwards, or
+     *  null when it could not move. */
     suspend fun moveChannel(channel: ChannelEntity, delta: Int): Int? {
         if (!canMoveChannels(channel)) return null
         val pid = currentProfileId() ?: return null
         val filter = _categoryFilter.value
-        val favouritesFirst = sortGuide.value == SettingsRepository.GuideSort.FAVORITES &&
-            filter !is tv.own.owntv.core.live.LiveKey.Folder && filter !is tv.own.owntv.core.live.LiveKey.Custom
-        val contextKey = if (favouritesFirst) tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT else when (filter) {
-            is tv.own.owntv.core.live.LiveKey.Folder -> categoryDao.getById(filter.id)?.let(CustomizeKeys::category)
-            is tv.own.owntv.core.live.LiveKey.Custom -> filter.id
-            tv.own.owntv.core.live.LiveKey.Favorites -> tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT
-            else -> null
-        } ?: return null
+        val sort = sortGuide.value
+        val favs = favouriteIdsOnScreen
+        val favouritesFirst = sort == SettingsRepository.GuideSort.FAVORITES && filter != tv.own.owntv.core.live.LiveKey.Favorites
+        val nonFavourite = favouritesFirst && channel.id !in favs
+        val contextKey = moveContext(filter, sort, nonFavourite) ?: return null
         val list = _state.value.channels.toMutableList()
         val from = list.indexOfFirst { it.id == channel.id }
         val to = from + delta
-        val favs = favouriteIdsOnScreen
-        // In Favourites first the favourites sit on top; a channel moves among them, not out into the rest.
-        val limit = if (favouritesFirst) list.count { it.id in favs } else list.size
-        if (from < 0 || to < 0 || to >= limit) return null
+        // Favourites first: the favourites sit on top; each group moves within itself.
+        val favCount = if (favouritesFirst) list.count { it.id in favs } else 0
+        val lo = if (nonFavourite) favCount else 0
+        val hi = if (favouritesFirst && !nonFavourite) favCount else list.size
+        if (from < lo || to < lo || to >= hi) return null
         list.add(to, list.removeAt(from))
         _state.value = _state.value.copy(channels = list)
-        val order = if (favouritesFirst) list.filter { it.id in favs }.map { it.id } else list.map { it.id }
+        val order = when {
+            !favouritesFirst -> list.map { it.id }
+            nonFavourite -> list.filter { it.id !in favs }.map { it.id }
+            else -> list.filter { it.id in favs }.map { it.id }
+        }
         viewModelScope.launch { moveSaves.withLock { contentOrderDao.saveMove(pid, MediaType.LIVE, contextKey, order, setOf(channel.id)) } }
         return to
+    }
+
+    /** Puts the channels moved in a guide-own order (see [moveContext]) back where they were left. */
+    private suspend fun applyGuideOrder(
+        pid: Long,
+        list: List<ChannelEntity>,
+        filter: tv.own.owntv.core.live.LiveKey?,
+        sort: SettingsRepository.GuideSort,
+        favs: Set<Long>,
+    ): List<ChannelEntity> {
+        if (list.size < 2) return list
+        val favouritesFirst = sort == SettingsRepository.GuideSort.FAVORITES && filter != tv.own.owntv.core.live.LiveKey.Favorites
+        val key = moveContext(filter, sort, nonFavourite = true) ?: return list
+        if (!GuideOrderKeys.isGuideOwn(key)) return list // Live TV's shared orders are already applied
+        val saved = runCatching { contentOrderDao.positions(pid, MediaType.LIVE, key) }.getOrDefault(emptyList())
+        if (saved.isEmpty()) return list
+        val head = if (favouritesFirst) list.takeWhile { it.id in favs } else emptyList()
+        val tail = list.drop(head.size)
+        val byId = tail.associateBy { it.id }
+        val pinned = saved.mapNotNull { row -> byId[row.itemId]?.let { it to row.position } }
+        if (pinned.isEmpty()) return list
+        val pinnedIds = pinned.mapTo(HashSet()) { it.first.id }
+        return head + tv.own.owntv.core.customize.placePinned(tail.filter { it.id !in pinnedIds }, pinned.sortedBy { it.second })
     }
 
     fun load() {
@@ -1139,7 +1182,7 @@ class EpgViewModel(
                     else -> sorted.filter { it.id in memberIds.orEmpty() }
                 }
             }
-        }
+        }.let { list -> if (q.isNotEmpty()) list else applyGuideOrder(pid, list, filter, sortGuideMode, favoriteIds) }
         val stored = epgDao.countForSources(ids)
 
 

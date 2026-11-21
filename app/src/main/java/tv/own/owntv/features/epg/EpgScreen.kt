@@ -201,6 +201,9 @@ fun EpgScreen(
     /** False while the full-screen or mini player owns the video surface. */
     previewEnabled: Boolean = true,
     liveMode: Boolean = false,
+    /** The side menu's Favourites: the favourite channels only, in their own order, with no category or
+     *  order chips. The TV Guide's own category is put back on leaving. */
+    favouritesMode: Boolean = false,
     onListView: () -> Unit = {},
     /** How ▶ from the rail enters the guide: at the grid row focus was on (the rail's entry hook, as Home's). */
     onEntryHook: (((() -> Boolean)?) -> Unit)? = null,
@@ -240,12 +243,25 @@ fun EpgScreen(
     // so the guide does not load every channel's programmes first. A return (from the player, Settings,
     // or a startup that already chose the category) keeps the one it has, and Live TV moving its focus
     // never changes it.
-    val categoryKey: LiveKey? = if (liveMode) liveSelected.takeUnless { it == LiveKey.All } else categoryFilter
+    val categoryKey: LiveKey? = when {
+        favouritesMode -> LiveKey.Favorites
+        liveMode -> liveSelected.takeUnless { it == LiveKey.All }
+        else -> categoryFilter
+    }
     val followsLive by liveVm.guideFollowsLive.collectAsStateWithLifecycle()
     LaunchedEffect(liveMode, liveSelected) { if (liveMode) vm.setCategoryFilter(liveSelected) }
     LaunchedEffect(Unit) {
-        if (!liveMode && !restoreFocus) liveVm.guideOpeningKey()?.let(vm::setCategoryFilter)
+        if (!liveMode && !favouritesMode && !restoreFocus) liveVm.guideOpeningKey()?.let(vm::setCategoryFilter)
         vm.load() // reload from DB each time the guide is opened
+    }
+    // The view model is shared with the TV Guide: Favourites borrows its category and hands it back.
+    if (favouritesMode) {
+        DisposableEffect(Unit) {
+            val guideOwn = vm.categoryFilter.value.takeUnless { it == LiveKey.Favorites } ?: vm.guideCategoryBeforeFavourites
+            vm.guideCategoryBeforeFavourites = guideOwn
+            vm.setCategoryFilter(LiveKey.Favorites)
+            onDispose { vm.setCategoryFilter(guideOwn) }
+        }
     }
 
     // "OK previews first" on (the default): the preview stays on its channel while the guide is browsed;
@@ -575,7 +591,13 @@ fun EpgScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(if (liveMode) R.string.common_nav_live_tv else R.string.content_epg_title),
+                stringResource(
+                    when {
+                        favouritesMode -> R.string.common_nav_favorites
+                        liveMode -> R.string.common_nav_live_tv
+                        else -> R.string.content_epg_title
+                    },
+                ),
                 style = stageText(30, 800), color = StageColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 16.mpx, end = 14.mpx),
             )
@@ -585,16 +607,19 @@ fun EpgScreen(
                 modifier = Modifier.focusRequester(dayTool),
             )
             StageTool(text = stringResource(R.string.content_epg_now_short), icon = OwnTVIcon.NOW, onClick = { showTime(System.currentTimeMillis()); cursorTime = System.currentTimeMillis() })
-            StageTool(
-                text = null, icon = OwnTVIcon.LIST, value = categoryLabel, valueAccent = true, trailingIcon = OwnTVIcon.CHEVRON_DOWN,
-                onClick = { sheetFromGrid = false; sheetOpen = true },
-                modifier = Modifier.focusRequester(categoryTool).widthIn(max = 380.mpx),
-            )
-            StageTool(
-                text = null, icon = OwnTVIcon.SORT, value = guideSortLabel(sortGuide), trailingIcon = OwnTVIcon.CHEVRON_DOWN,
-                onClick = { returnTo = { runCatching { orderTool.requestFocus() } }; orderOpen = true },
-                modifier = Modifier.focusRequester(orderTool),
-            )
+            // Favourites is one fixed list in its own order: no category or order to pick.
+            if (!favouritesMode) {
+                StageTool(
+                    text = null, icon = OwnTVIcon.LIST, value = categoryLabel, valueAccent = true, trailingIcon = OwnTVIcon.CHEVRON_DOWN,
+                    onClick = { sheetFromGrid = false; sheetOpen = true },
+                    modifier = Modifier.focusRequester(categoryTool).widthIn(max = 380.mpx),
+                )
+                StageTool(
+                    text = null, icon = OwnTVIcon.SORT, value = guideSortLabel(sortGuide), trailingIcon = OwnTVIcon.CHEVRON_DOWN,
+                    onClick = { returnTo = { runCatching { orderTool.requestFocus() } }; orderOpen = true },
+                    modifier = Modifier.focusRequester(orderTool),
+                )
+            }
             if (searchOpen || query.isNotEmpty()) {
                 StageSearchField(
                     query = query, onQueryChange = vm::setQuery,
@@ -694,7 +719,12 @@ fun EpgScreen(
                                     selectedRow = focus.selectedRow,
                                     cursorTime = focus.cursorTime,
                                     cellMode = focus.cellMode,
-                                    onLeft = { sheetFromGrid = true; sheetOpen = true },
+                                    // Favourites has no category list: ◀ goes straight on to the app menu.
+                                    onLeft = if (favouritesMode) {
+                                        { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left) }
+                                    } else {
+                                        { sheetFromGrid = true; sheetOpen = true }
+                                    },
                                     onEnterCell = {
                                         cursorTime = System.currentTimeMillis()
                                         inCellMode = true
