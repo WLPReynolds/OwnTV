@@ -30,7 +30,8 @@
     <string name="fork_picture_deband" translatable="false">Smooth blocky shading</string>
     <string name="fork_picture_deband_desc" translatable="false">Debanding: evens out stepped skies and dark areas</string>
     <string name="fork_picture_sharpen" translatable="false">Sharpen</string>
-    <string name="fork_picture_sharpen_desc" translatable="false">Light sharpening of edges and detail</string>
+    <string name="fork_picture_sharpen_desc" translatable="false">◀ ▶ to adjust strength, OK to turn on or off</string>
+    <string name="fork_picture_level" translatable="false">%1$d / %2$d</string>
     <string name="fork_picture_reset" translatable="false">Reset to default picture</string>
     <string name="fork_player_guide" translatable="false">TV guide</string>
 </resources>

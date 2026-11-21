@@ -515,6 +515,7 @@ internal fun PictureFiltersDialog(player: OwnTVPlayer, onDismiss: () -> Unit) {
     val deband by player.pictureDeband.collectAsStateWithLifecycle()
     val sharpen by player.pictureSharpen.collectAsStateWithLifecycle()
     val on = stringResource(R.string.common_on)
+    var lastSharpen by remember { mutableStateOf(DEFAULT_SHARPEN) }
     val off = stringResource(R.string.common_off)
     DialogScaffold(title = stringResource(R.string.fork_picture_title), onDismiss = onDismiss) {
         item {
@@ -527,19 +528,40 @@ internal fun PictureFiltersDialog(player: OwnTVPlayer, onDismiss: () -> Unit) {
             )
         }
         item {
+            // A scale: ◀ / ▶ step the strength a tenth at a time while the picture plays; OK turns it
+            // off, or back on at the last level used.
+            val max = PICTURE_SHARPEN_MAX
             tv.own.owntv.ui.stage.StagePopupOption(
                 title = stringResource(R.string.fork_picture_sharpen),
                 subtitle = stringResource(R.string.fork_picture_sharpen_desc),
-                value = if (sharpen) on else off, chosen = sharpen,
-                onClick = { player.setPictureFilters(deband = deband, sharpen = !sharpen) },
+                value = if (sharpen > 0) stringResource(R.string.fork_picture_level, sharpen, max) else off,
+                chosen = sharpen > 0,
+                modifier = Modifier.onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val step = when (e.key) {
+                        Key.DirectionLeft -> -1
+                        Key.DirectionRight -> 1
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    val next = (sharpen + step).coerceIn(0, max)
+                    if (next != sharpen) {
+                        if (next > 0) lastSharpen = next
+                        player.setPictureFilters(deband = deband, sharpen = next)
+                    }
+                    true
+                },
+                onClick = { player.setPictureFilters(deband = deband, sharpen = if (sharpen > 0) 0 else lastSharpen) },
             )
         }
         item {
             tv.own.owntv.ui.stage.StagePopupOption(
                 title = stringResource(R.string.fork_picture_reset),
-                enabled = deband || sharpen,
-                onClick = { player.setPictureFilters(deband = false, sharpen = false) },
+                enabled = deband || sharpen > 0,
+                onClick = { player.setPictureFilters(deband = false, sharpen = 0) },
             )
         }
     }
 }
+
+/** The sharpening level OK turns on before any other has been picked: the 0.6 first tried. */
+private const val DEFAULT_SHARPEN = 6
