@@ -93,7 +93,7 @@ private const val TRACK_POLL_TRIES = 20
  *  Counted from the stall, which itself only starts once the buffer (~10s) has run dry. */
 private const val RECONNECT_NOTICE_AFTER_MS = 10_000L
 
-internal enum class HudDialog { NONE, AUDIO, SUBS, SPEED, ZOOM, QUALITY, VOLUME, JUMP_BACK, SLEEP_TIMER, SOURCES }
+internal enum class HudDialog { NONE, AUDIO, SUBS, SPEED, ZOOM, QUALITY, VOLUME, JUMP_BACK, SLEEP_TIMER, SOURCES, PICTURE }
 
 /**
  * "Sources": the other versions of the live channel playing ([tv.own.owntv.core.live.ChannelVersions]).
@@ -724,6 +724,8 @@ fun PlayerHud(
                     hasSources = sources != null,
                     onOpenGuide = if (isLive) onOpenChannelList?.let { open -> { controlsVisible = false; open() } } else null,
                     compatMode = compatMode, onToggleCompatMode = toggleCompat,
+                    // Picture filters: mpv only (ExoPlayer's direct surface takes none).
+                    pictureFilters = compatMode == true && player is OwnTVPlayer,
                     vodOnExo = vodOnExo, onToggleVodEngine = toggleVod,
                     onInfo = { showInfo = !showInfo }, infoOn = showInfo,
                     onReport = {
@@ -956,6 +958,9 @@ fun PlayerHud(
         HudDialog.VOLUME -> VolumeDialog(player, onDismiss = { dialog = HudDialog.NONE })
         HudDialog.SOURCES -> sources?.let { s ->
             SourcesDialog(s, onDismiss = { dialog = HudDialog.NONE })
+        } ?: run { dialog = HudDialog.NONE }
+        HudDialog.PICTURE -> (player as? OwnTVPlayer)?.let { mpv ->
+            PictureFiltersDialog(mpv, onDismiss = { dialog = HudDialog.NONE })
         } ?: run { dialog = HudDialog.NONE }
         HudDialog.SLEEP_TIMER -> SleepTimerDialog(
             timer = org.koin.compose.koinInject(),

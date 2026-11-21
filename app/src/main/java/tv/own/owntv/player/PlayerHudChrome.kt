@@ -360,6 +360,8 @@ internal fun BottomBar(
     liveProgrammes: List<LiveProgramme> = emptyList(),
     liveGaps: () -> List<LongRange> = { emptyList() },
     compatMode: Boolean?, onToggleCompatMode: (() -> Unit)?,
+    /** Offer the Picture panel (deband / sharpen) beside the engine pill: live on mpv only. */
+    pictureFilters: Boolean = false,
     vodOnExo: Boolean?, onToggleVodEngine: (() -> Unit)?,
     onInfo: (() -> Unit)? = null, infoOn: Boolean = false, onReport: (() -> Unit)? = null,
     favorite: Boolean = false, onToggleFavorite: (() -> Unit)? = null,
@@ -504,6 +506,9 @@ internal fun BottomBar(
                             // click (teal while pinned to mpv).
                             if (onToggleCompatMode != null) {
                                 EngineToggle(label = stringResource(if (compatMode == true) R.string.player_engine_mpv else R.string.player_engine_exo), active = compatMode == true, toolLabel = stringResource(R.string.player_tool_engine)) { onToggleCompatMode() }
+                            }
+                            if (pictureFilters) {
+                                CtrlButton(OwnTVIcon.SPARKLE, label = stringResource(R.string.fork_picture_title)) { onOpenDialog(HudDialog.PICTURE) }
                             }
                             // VOD engine toggle (Movies/Series): flip THIS movie/episode between mpv
                             // and ExoPlayer. The pill shows the active engine (teal while ExoPlayer

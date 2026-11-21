@@ -501,3 +501,45 @@ private fun OptionRow(label: String, selected: Boolean, modifier: Modifier = Mod
 private fun ActionRow(label: String, icon: OwnTVIcon, onClick: () -> Unit) {
     tv.own.owntv.ui.stage.StagePopupOption(title = label, onClick = onClick, leading = { tv.own.owntv.ui.stage.StagePopupIcon(icon) })
 }
+
+/**
+ * Picture filters for a poor SD channel, on mpv: debanding and light sharpening, each switched on and
+ * off while the picture plays behind the panel, so the difference can be judged on screen. Reset goes
+ * back to the default picture; a new channel starts there anyway.
+ */
+@Composable
+internal fun PictureFiltersDialog(player: OwnTVPlayer, onDismiss: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { requestFocusRetrying(focus) }
+    BackHandler { onDismiss() }
+    val deband by player.pictureDeband.collectAsStateWithLifecycle()
+    val sharpen by player.pictureSharpen.collectAsStateWithLifecycle()
+    val on = stringResource(R.string.common_on)
+    val off = stringResource(R.string.common_off)
+    DialogScaffold(title = stringResource(R.string.fork_picture_title), onDismiss = onDismiss) {
+        item {
+            tv.own.owntv.ui.stage.StagePopupOption(
+                title = stringResource(R.string.fork_picture_deband),
+                subtitle = stringResource(R.string.fork_picture_deband_desc),
+                value = if (deband) on else off, chosen = deband,
+                modifier = Modifier.focusRequester(focus),
+                onClick = { player.setPictureFilters(deband = !deband, sharpen = sharpen) },
+            )
+        }
+        item {
+            tv.own.owntv.ui.stage.StagePopupOption(
+                title = stringResource(R.string.fork_picture_sharpen),
+                subtitle = stringResource(R.string.fork_picture_sharpen_desc),
+                value = if (sharpen) on else off, chosen = sharpen,
+                onClick = { player.setPictureFilters(deband = deband, sharpen = !sharpen) },
+            )
+        }
+        item {
+            tv.own.owntv.ui.stage.StagePopupOption(
+                title = stringResource(R.string.fork_picture_reset),
+                enabled = deband || sharpen,
+                onClick = { player.setPictureFilters(deband = false, sharpen = false) },
+            )
+        }
+    }
+}
