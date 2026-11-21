@@ -1,6 +1,12 @@
 package tv.own.owntv.features.shell.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -70,58 +76,83 @@ internal fun PlayerSchedulePanel(
     }
 
     val now = remember(programmes) { System.currentTimeMillis() }
-    val upcoming = programmes.orEmpty().filter { it.stopMs > now }.take(8)
+    val upcoming = programmes.orEmpty().filter { it.stopMs > now }.take(11)
     val onAir = upcoming.firstOrNull()?.takeIf { it.startMs <= now }
     val accent = stageAccent.accent
 
     Column(
         modifier = modifier
             .stageGlass(StageRadii.Sheet, overContent = true)
-            .padding(horizontal = 26.mpx, vertical = 26.mpx),
-        verticalArrangement = Arrangement.spacedBy(6.mpx),
+            .padding(horizontal = 28.mpx, vertical = 26.mpx),
+        verticalArrangement = Arrangement.spacedBy(8.mpx),
     ) {
+        // Header: the channel, as the TV guide names it.
         Text(
-            ProviderTags.parse(channel.name).name,
-            style = stageText(24, 800), color = StageColors.Text,
+            listOfNotNull(channel.number?.toString(), ProviderTags.parse(channel.name).name).joinToString("  "),
+            style = stageText(26, 800), color = StageColors.Text,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
         when {
             programmes == null -> Text(
                 stringResource(R.string.fork_schedule_loading),
-                style = stageText(17, 400), color = StageColors.Dim,
+                style = stageText(18, 400), color = StageColors.Dim,
             )
             upcoming.isEmpty() -> Text(
                 stringResource(R.string.fork_schedule_none),
-                style = stageText(17, 400), color = StageColors.Dim,
+                style = stageText(18, 400), color = StageColors.Dim,
             )
             else -> {
+                // Summary of the programme on air: title, span, time left, progress and synopsis.
                 onAir?.let { p ->
-                    Text(
-                        p.title, style = stageText(20, 700), color = accent,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        stringResource(R.string.fork_schedule_span, timeFormat.format(Date(p.startMs)), timeFormat.format(Date(p.stopMs))),
-                        style = stageText(16, 500), color = StageColors.Muted,
-                    )
-                    p.description?.takeIf { it.isNotBlank() }?.let { d ->
+                    Column(
+                        Modifier.fillMaxWidth().padding(top = 6.mpx, bottom = 10.mpx),
+                        verticalArrangement = Arrangement.spacedBy(6.mpx),
+                    ) {
                         Text(
-                            d, style = stageText(16, 400), color = StageColors.Dim,
-                            maxLines = 4, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 2.mpx, bottom = 8.mpx),
+                            p.title, style = stageText(28, 800), color = StageColors.Text,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
-                    }
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(7.mpx)) {
-                    upcoming.filter { it !== onAir }.forEach { p ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.mpx)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.mpx), verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                timeFormat.format(Date(p.startMs)),
-                                style = stageText(17, 500), color = StageColors.Muted,
-                                modifier = Modifier.width(78.mpx),
+                                stringResource(R.string.fork_schedule_span, timeFormat.format(Date(p.startMs)), timeFormat.format(Date(p.stopMs))),
+                                style = stageText(18, 600), color = accent,
                             )
                             Text(
-                                p.title, style = stageText(17, 400), color = StageColors.Text,
+                                stringResource(R.string.fork_schedule_left, ((p.stopMs - now) / 60_000L).coerceAtLeast(1L).toString()),
+                                style = stageText(18, 500), color = StageColors.Muted,
+                            )
+                        }
+                        val total = (p.stopMs - p.startMs).coerceAtLeast(1L)
+                        val done = ((now - p.startMs).toFloat() / total).coerceIn(0f, 1f)
+                        Box(
+                            Modifier.fillMaxWidth().height(4.mpx).clip(RoundedCornerShape(2.mpx))
+                                .background(StageColors.Muted.copy(alpha = 0.3f)),
+                        ) {
+                            Box(Modifier.fillMaxWidth(done).height(4.mpx).background(accent))
+                        }
+                        p.description?.takeIf { it.isNotBlank() }?.let { d ->
+                            Text(
+                                d, style = stageText(18, 400), color = StageColors.Dim,
+                                maxLines = 7, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 4.mpx),
+                            )
+                        }
+                    }
+                }
+                // The rest of the day, the programme on air first.
+                Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.mpx)) {
+                    upcoming.forEach { p ->
+                        val live = p === onAir
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.mpx)) {
+                            Text(
+                                timeFormat.format(Date(p.startMs)),
+                                style = stageText(18, if (live) 700 else 500),
+                                color = if (live) accent else StageColors.Muted,
+                                modifier = Modifier.width(84.mpx),
+                            )
+                            Text(
+                                p.title, style = stageText(18, if (live) 700 else 400),
+                                color = if (live) accent else StageColors.Text,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
