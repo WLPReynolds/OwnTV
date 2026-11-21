@@ -1185,6 +1185,15 @@ fun OwnTVShell(
                     // don't mount the fullscreen player over it.
                     if (playerMode != PlayerMode.MINI && !liveVm.externalPlayerOn.value) playerMode = PlayerMode.FULLSCREEN
                 }
+                // Favourites: the player's channel list (TV guide button, ◀, CH±) is the favourites, not the
+                // channel's own category.
+                val favouritesPlayChannel: (ChannelEntity, List<ChannelEntity>) -> Unit = { ch, list ->
+                    restoreFocus = false
+                    liveVm.watchFromGuide(ch, list, tv.own.owntv.core.live.LiveKey.Favorites)
+                    zapSource = MainSection.LIVE_TV
+                    homeVm.stopPreview()
+                    if (playerMode != PlayerMode.MINI && !liveVm.externalPlayerOn.value) playerMode = PlayerMode.FULLSCREEN
+                }
                 val guidePlayCatchup: (ChannelEntity, tv.own.owntv.core.database.entity.EpgProgrammeEntity) -> Unit = { ch, prog ->
                     restoreFocus = false
                     liveVm.playCatchupProgramme(ch, prog)
@@ -1436,7 +1445,7 @@ fun OwnTVShell(
                         // Favourites: the guide fixed to the profile's favourite channels, in their own order.
                         selectedSection == MainSection.FAVOURITES -> EpgScreen(
                             onFullscreen = { openFullscreen() },
-                            onPlayChannel = guidePlayChannel,
+                            onPlayChannel = favouritesPlayChannel,
                             onPlayCatchup = guidePlayCatchup,
                             previewEnabled = playerMode == PlayerMode.NONE,
                             favouritesMode = true,
