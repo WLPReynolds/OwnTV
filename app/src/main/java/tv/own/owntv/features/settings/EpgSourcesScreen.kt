@@ -83,7 +83,8 @@ fun EpgSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier, startOnA
     if (adding || editing != null) {
         EpgSourceForm(
             initial = editing,
-            initialAutoRefresh = editing?.let { autoRefreshMap[it.id] } ?: EpgRefresh.OFF,
+            // A guide being added starts on a daily refresh, so its programmes never quietly run out.
+            initialAutoRefresh = editing?.let { autoRefreshMap[it.id] ?: EpgRefresh.OFF } ?: NEW_GUIDE_REFRESH,
             initialUseLogos = editing?.let { it.id in useLogosIds } ?: false,
             loadPlaylistOptions = { vm.playlistEpgOptions() },
             onSave = { name, url, ua, autoRefresh, useLogos ->

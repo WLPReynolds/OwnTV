@@ -545,7 +545,15 @@ fun EpgScreen(
         val timelineW = screenW - fx(48) - labelW - fx(64)
         LaunchedEffect(timelineW) { timelinePx = with(density) { timelineW.roundToPx() } }
 
-        val top = selected ?: state.channels.getOrNull(focusedRow)?.let { ch -> ch to programmeAt(vm.cachedProgrammes(ch), liveNow) }
+        // The header's channel reads its own row rather than only peeking at the cache: on opening, the
+        // header can be drawn before that row is, and a peek at an empty cache said "No programme" until
+        // something else happened to redraw it.
+        val headerChannel = if (selected == null) state.channels.getOrNull(focusedRow) else null
+        val headerRevision by vm.cacheRevision.collectAsStateWithLifecycle()
+        val headerRow by produceState(headerChannel?.let { vm.cachedProgrammes(it) }, headerChannel?.id, headerRevision) {
+            value = headerChannel?.let { vm.programmesFor(it) }
+        }
+        val top = selected ?: headerChannel?.let { ch -> ch to programmeAt(headerRow, liveNow) }
         val topChannel = top?.first
         val topProgramme = top?.second
         val full by produceState<EpgProgrammeEntity?>(null, topProgramme?.id) {

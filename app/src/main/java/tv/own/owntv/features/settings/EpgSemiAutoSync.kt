@@ -29,7 +29,15 @@ suspend fun runSemiAutoEpgSync(
     for (url in urls) {
         // Show up in Settings → EPG Sources like any other feed (so the user can re-sync / delete it there).
         // Two feeds of one playlist share its name and are told apart by the URL shown beneath it.
-        val epgSource = store.getAll().firstOrNull { it.url == url } ?: store.add(source.name, url, source.userAgent)
+        val epgSource = store.getAll().firstOrNull { it.url == url }
+            ?: store.add(source.name, url, source.userAgent).also { added ->
+                // A playlist's own guide, newly registered, refreshes daily like one added by hand.
+                runCatching {
+                    org.koin.java.KoinJavaComponent.get<tv.own.owntv.core.settings.SettingsRepository>(
+                        tv.own.owntv.core.settings.SettingsRepository::class.java,
+                    ).setEpgAutoRefresh(added.id, NEW_GUIDE_REFRESH)
+                }
+            }
         val now = System.currentTimeMillis()
         try {
             val written = epgRepository.refreshUrl(epgSource.id, epgSource.url, epgSource.userAgent) { _, count ->
