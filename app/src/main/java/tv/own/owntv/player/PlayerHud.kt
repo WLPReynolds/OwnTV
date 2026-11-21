@@ -725,7 +725,7 @@ fun PlayerHud(
                     onOpenGuide = if (isLive) onOpenChannelList?.let { open -> { controlsVisible = false; open() } } else null,
                     compatMode = compatMode, onToggleCompatMode = toggleCompat,
                     // Picture filters: mpv only (ExoPlayer's direct surface takes none).
-                    pictureFilters = compatMode == true && player is OwnTVPlayer,
+                    pictureFilters = compatMode == true && player is MpvPlaybackEngine,
                     vodOnExo = vodOnExo, onToggleVodEngine = toggleVod,
                     onInfo = { showInfo = !showInfo }, infoOn = showInfo,
                     onReport = {
@@ -959,7 +959,7 @@ fun PlayerHud(
         HudDialog.SOURCES -> sources?.let { s ->
             SourcesDialog(s, onDismiss = { dialog = HudDialog.NONE })
         } ?: run { dialog = HudDialog.NONE }
-        HudDialog.PICTURE -> (player as? OwnTVPlayer)?.let { mpv ->
+        HudDialog.PICTURE -> (player as? MpvPlaybackEngine)?.mpv?.let { mpv ->
             PictureFiltersDialog(mpv, onDismiss = { dialog = HudDialog.NONE })
         } ?: run { dialog = HudDialog.NONE }
         HudDialog.SLEEP_TIMER -> SleepTimerDialog(
