@@ -24,5 +24,6 @@
     <string name="fork_move_hint" translatable="false">Not in this view</string>
     <string name="fork_schedule_loading" translatable="false">Loading programmes…</string>
     <string name="fork_schedule_none" translatable="false">No programme information</string>
+    <string name="fork_schedule_span" translatable="false">%1$s – %2$s</string>
     <string name="fork_player_guide" translatable="false">TV guide</string>
 </resources>

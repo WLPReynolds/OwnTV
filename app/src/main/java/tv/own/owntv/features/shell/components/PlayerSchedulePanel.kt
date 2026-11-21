@@ -101,7 +101,7 @@ internal fun PlayerSchedulePanel(
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        timeFormat.format(Date(p.startMs)) + " – " + timeFormat.format(Date(p.stopMs)),
+                        stringResource(R.string.fork_schedule_span, timeFormat.format(Date(p.startMs)), timeFormat.format(Date(p.stopMs))),
                         style = stageText(16, 500), color = StageColors.Muted,
                     )
                     p.description?.takeIf { it.isNotBlank() }?.let { d ->
