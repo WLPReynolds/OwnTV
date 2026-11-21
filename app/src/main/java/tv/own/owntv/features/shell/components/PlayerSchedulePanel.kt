@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,6 +58,7 @@ internal fun PlayerSchedulePanel(
     val guideReader: GuideReader = koinInject()
     val settings: SettingsRepository = koinInject()
     val customize: CustomizationStore = koinInject()
+    val epgDao: tv.own.owntv.core.database.dao.EpgDao = koinInject()
     val context = LocalContext.current
     val timeFormat = remember(context) { android.text.format.DateFormat.getTimeFormat(context) }
     val profileId by settings.activeProfileId.collectAsState(initial = -1L)
@@ -72,11 +74,23 @@ internal fun PlayerSchedulePanel(
         // Now to the end of the evening: enough for "what's on later", small enough to stay quick.
         value = runCatching {
             guideReader.row(channel, cust, offset, now, now + 12L * 3_600_000L, withText = true)
-        }.getOrDefault(emptyList())
+        }.getOrDefault(emptyList()).let { rows ->
+            // The feed's synopsis can be missing from the row read; the stored programme has it
+            // (the same lookup the Guide's Programme details page uses). Only the rows shown, only blanks.
+            val shown = rows.filter { it.stopMs > now }.take(SHOWN)
+            val filled = shown.map { p ->
+                if (p.description.isNullOrBlank() && p.id > 0L) {
+                    runCatching { epgDao.programmeById(p.id) }.getOrNull()
+                        ?.description?.takeIf { it.isNotBlank() }
+                        ?.let { d -> p.copy(description = d) } ?: p
+                } else p
+            }
+            filled + rows.filter { it.stopMs > now }.drop(SHOWN)
+        }
     }
 
     val now = remember(programmes) { System.currentTimeMillis() }
-    val upcoming = programmes.orEmpty().filter { it.stopMs > now }.take(11)
+    val upcoming = programmes.orEmpty().filter { it.stopMs > now }.take(SHOWN)
     val onAir = upcoming.firstOrNull()?.takeIf { it.startMs <= now }
     val accent = stageAccent.accent
 
@@ -107,7 +121,7 @@ internal fun PlayerSchedulePanel(
                 style = stageText(18, 400), color = StageColors.Dim,
             )
             else -> {
-                // Summary of the programme on air: title, span, time left, progress and synopsis.
+                // Summary of the programme on air: title, span, time left and progress.
                 onAir?.let { p ->
                     Column(
                         Modifier.fillMaxWidth().padding(top = 6.mpx, bottom = 10.mpx),
@@ -135,17 +149,10 @@ internal fun PlayerSchedulePanel(
                         ) {
                             Box(Modifier.fillMaxWidth(done).height(4.mpx).background(accent))
                         }
-                        p.description?.takeIf { it.isNotBlank() }?.let { d ->
-                            Text(
-                                d, style = stageText(18, 400), color = StageColors.Dim,
-                                maxLines = 7, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 4.mpx),
-                            )
-                        }
                     }
                 }
                 // The rest of the day, the programme on air first.
-                Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(8.mpx)) {
+                Column(Modifier.fillMaxWidth().weight(1f).clipToBounds(), verticalArrangement = Arrangement.spacedBy(10.mpx)) {
                     upcoming.forEach { p ->
                         val live = p === onAir
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.mpx)) {
@@ -155,11 +162,19 @@ internal fun PlayerSchedulePanel(
                                 color = if (live) accent else StageColors.Muted,
                                 modifier = Modifier.width(84.mpx),
                             )
-                            Text(
-                                p.title, style = stageText(18, if (live) 700 else 400),
-                                color = if (live) accent else StageColors.Text,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.mpx)) {
+                                Text(
+                                    p.title, style = stageText(18, if (live) 700 else 500),
+                                    color = if (live) accent else StageColors.Text,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                                p.description?.takeIf { it.isNotBlank() }?.let { d ->
+                                    Text(
+                                        d, style = stageText(16, 400), color = StageColors.Dim,
+                                        maxLines = if (live) 3 else 2, overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -167,3 +182,6 @@ internal fun PlayerSchedulePanel(
         }
     }
 }
+
+/** How many programmes the pane lists; each has room for a line or two of synopsis. */
+private const val SHOWN = 8
