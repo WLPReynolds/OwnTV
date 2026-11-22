@@ -212,6 +212,8 @@ fun EpgScreen(
     // Live TV's view model: its preview player (no second decoder), its category list and playlist marks.
     val liveVm: LiveViewModel = koinViewModel()
     val state by vm.state.collectAsStateWithLifecycle()
+    /** The list on screen is another category's while the chosen one loads (see the grid below). */
+    val switching by vm.switchingCategory.collectAsStateWithLifecycle()
     val liveNow by produceState(initialValue = System.currentTimeMillis()) {
         while (true) {
             delay(30_000L)
@@ -384,8 +386,9 @@ fun EpgScreen(
     // (a menu, Settings) goes back to the channel last tuned here and leaves the preview as it was.
     // The playing channel's category is opened once; if the channel is still not listed, the old target is used.
     var categoryOpenedFor by remember { mutableStateOf<Long?>(null) }
-    LaunchedEffect(restoreFocus, state.loading, state.channels) {
-        if (!restoreFocus || state.loading || state.channels.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(restoreFocus, state.loading, state.channels, switching) {
+        // Not while another category's list is still on screen: wait for the one being loaded.
+        if (!restoreFocus || state.loading || switching || state.channels.isEmpty()) return@LaunchedEffect
         val playing = previewChannel.takeIf { vm.playerClosed && previewEnabled }
         val playingIdx = playing?.let { ch -> state.channels.indexOfFirst { it.id == ch.id } } ?: -1
         if (playing != null && playingIdx < 0 && categoryOpenedFor != playing.id) {
@@ -666,120 +669,131 @@ fun EpgScreen(
             }
         }
 
-        // The grid: ruler at 518, rows from 566.
-        Box(Modifier.fillMaxWidth().weight(1f).padding(top = 18.mpx)) {
-            when {
-                state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { OwnTVSpinner(sizeDp = 44) }
-                // No EPG feed added yet → a guide it can't fill. Point the user to EPG Sources.
-                !state.hasEpgSources && state.channels.isEmpty() -> GuideEmpty(
-                    title = stringResource(R.string.content_epg_empty),
-                    body = stringResource(R.string.content_epg_add_description),
-                    action = stringResource(R.string.content_epg_add), onAction = onAddEpg,
-                )
-                // The guide's channel ids aren't the playlist's: Auto-match pairs them by name, so offer it
-                // right here rather than leave the button in the toolbar for someone to find.
-                state.channels.isEmpty() && state.message == EpgMessage.MismatchedIds -> GuideEmpty(
-                    title = stringResource(R.string.content_epg_no_guide),
-                    body = epgMessageText(EpgMessage.MismatchedIds),
-                    action = stringResource(R.string.content_epg_match_button), actionIcon = OwnTVIcon.SPARKLE, onAction = vm::autoMatchEpg,
-                )
-                state.channels.isEmpty() -> GuideEmpty(title = state.message?.let { epgMessageText(it) } ?: stringResource(R.string.content_epg_no_guide))
-                else -> {
-                    val gx = fx(48) + labelW
-                    // The number column fits the longest channel number (38 = three digits).
-                    val numberWidth = maxOf(38f, (state.channels.maxOfOrNull { it.number?.toString()?.length ?: 0 } ?: 0) * 11f).mpx
-                    GuideRuler(
-                        windowStart = state.windowStart, windowEnd = state.windowEnd, now = liveNow, scrollPx = readScrollPx,
-                        modifier = Modifier.padding(start = gx).width(timelineW).height(40.mpx),
+        // The grid: ruler at 518, rows from 566. While another category loads, the list still on screen
+        // is the old one: it is hidden behind a spinner (kept, not removed, so focus stays in the grid),
+        // and only Back gets through until the new list lands.
+        Box(
+            Modifier.fillMaxWidth().weight(1f).padding(top = 18.mpx)
+                .onPreviewKeyEvent { switching && it.key != Key.Back },
+        ) {
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (switching) 0f else 1f }) {
+                when {
+                    state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { OwnTVSpinner(sizeDp = 44) }
+                    // No EPG feed added yet → a guide it can't fill. Point the user to EPG Sources.
+                    !state.hasEpgSources && state.channels.isEmpty() -> GuideEmpty(
+                        title = stringResource(R.string.content_epg_empty),
+                        body = stringResource(R.string.content_epg_add_description),
+                        action = stringResource(R.string.content_epg_add), onAction = onAddEpg,
                     )
-                    CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides edgeScrollSpec) {
-                        LazyColumn(
-                            state = rowListState,
-                            modifier = Modifier
-                                .padding(start = fx(48), end = fx(64), top = 48.mpx)
-                                .fillMaxSize()
-                                .onFocusChanged { gridHasFocus = it.hasFocus }
-                                .focusProperties { onEnter = { runCatching { rowFocus(focusedRow.coerceIn(0, state.channels.size - 1)).requestFocus() } } }
-                                .focusGroup(),
-                            verticalArrangement = Arrangement.spacedBy(GuideGridDefaults.RowGap),
-                            contentPadding = PaddingValues(bottom = 24.mpx),
-                        ) {
-                            itemsIndexed(state.channels, key = { _, ch -> ch.id }) { index, channel ->
-                                val focus = guideRowFocusArgs(index, focusedRow, cursorTime, inCellMode, gridHasFocus)
-                                // A catch-up row that stays on screen asks for its past days; a row
-                                // flung past does not.
-                                if (channel.catchup) LaunchedEffect(channel.id) {
-                                    delay(ARCHIVE_ROW_VISIBLE_MS)
-                                    vm.requestArchiveGuide(channel)
+                    // The guide's channel ids aren't the playlist's: Auto-match pairs them by name, so offer it
+                    // right here rather than leave the button in the toolbar for someone to find.
+                    state.channels.isEmpty() && state.message == EpgMessage.MismatchedIds -> GuideEmpty(
+                        title = stringResource(R.string.content_epg_no_guide),
+                        body = epgMessageText(EpgMessage.MismatchedIds),
+                        action = stringResource(R.string.content_epg_match_button), actionIcon = OwnTVIcon.SPARKLE, onAction = vm::autoMatchEpg,
+                    )
+                    state.channels.isEmpty() -> GuideEmpty(title = state.message?.let { epgMessageText(it) } ?: stringResource(R.string.content_epg_no_guide))
+                    else -> {
+                        val gx = fx(48) + labelW
+                        // The number column fits the longest channel number (38 = three digits).
+                        val numberWidth = maxOf(38f, (state.channels.maxOfOrNull { it.number?.toString()?.length ?: 0 } ?: 0) * 11f).mpx
+                        GuideRuler(
+                            windowStart = state.windowStart, windowEnd = state.windowEnd, now = liveNow, scrollPx = readScrollPx,
+                            modifier = Modifier.padding(start = gx).width(timelineW).height(40.mpx),
+                        )
+                        CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides edgeScrollSpec) {
+                            LazyColumn(
+                                state = rowListState,
+                                modifier = Modifier
+                                    .padding(start = fx(48), end = fx(64), top = 48.mpx)
+                                    .fillMaxSize()
+                                    .onFocusChanged { gridHasFocus = it.hasFocus }
+                                    .focusProperties { onEnter = { runCatching { rowFocus(focusedRow.coerceIn(0, state.channels.size - 1)).requestFocus() } } }
+                                    .focusGroup(),
+                                verticalArrangement = Arrangement.spacedBy(GuideGridDefaults.RowGap),
+                                contentPadding = PaddingValues(bottom = 24.mpx),
+                            ) {
+                                itemsIndexed(state.channels, key = { _, ch -> ch.id }) { index, channel ->
+                                    val focus = guideRowFocusArgs(index, focusedRow, cursorTime, inCellMode, gridHasFocus)
+                                    // A catch-up row that stays on screen asks for its past days; a row
+                                    // flung past does not.
+                                    if (channel.catchup) LaunchedEffect(channel.id) {
+                                        delay(ARCHIVE_ROW_VISIBLE_MS)
+                                        vm.requestArchiveGuide(channel)
+                                    }
+                                    GuideRow(
+                                        vm = vm,
+                                        channel = channel,
+                                        name = rowName(channel),
+                                        dot = playlistMarks[channel.sourceId]?.shownColor,
+                                        labelWidth = labelW,
+                                        numberWidth = numberWidth,
+                                        windowStart = state.windowStart,
+                                        windowEnd = state.windowEnd,
+                                        now = liveNow,
+                                        scrollPx = readScrollPx,
+                                        focusRequester = rowFocus(index),
+                                        selectedRow = focus.selectedRow,
+                                        tuned = channel.id == paneChannel?.id,
+                                        cursorTime = focus.cursorTime,
+                                        cellMode = focus.cellMode,
+                                        // Favourites has no category list: ◀ goes straight on to the app menu.
+                                        onLeft = if (favouritesMode) {
+                                            { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left) }
+                                        } else {
+                                            { sheetFromGrid = true; sheetOpen = true }
+                                        },
+                                        onEnterCell = {
+                                            cursorTime = System.currentTimeMillis()
+                                            inCellMode = true
+                                            if (okPreviews(channel)) liveVm.onChannelFocused(channel)
+                                        },
+                                        recordingStarts = recordingsByChannel[channel.id].orEmpty(),
+                                        reminderStarts = remindersByChannel[channel.id].orEmpty(),
+                                        onFocused = {
+                                            focusedRow = index
+                                            if (cursorTime !in state.windowStart until state.windowEnd) cursorTime = System.currentTimeMillis()
+                                            if (!effectivePreview || !previewOnOk) liveVm.onChannelFocused(channel)
+                                        },
+                                        onCursor = { cursorTime = it },
+                                        onShow = { p -> selected = channel to p },
+                                        onStep = { delta ->
+                                            val from = stepTarget ?: index
+                                            val to = from + delta
+                                            when {
+                                                to < 0 -> false // ▲ from the first row: up to the control line
+                                                to >= state.channels.size -> true
+                                                else -> { stepTo(to); true }
+                                            }
+                                        },
+                                        onOk = { p -> if (okPreviews(channel)) liveVm.onChannelFocused(channel) else onOk(channel, p) },
+                                        onMenu = { p -> returnTo = null; if (p != null) menuFor = channel to p else channelMenuFor = channel },
+                                        onDetails = { p -> if (p != null) { returnTo = null; detailsFor = channel to p } },
+                                    )
                                 }
-                                GuideRow(
-                                    vm = vm,
-                                    channel = channel,
-                                    name = rowName(channel),
-                                    dot = playlistMarks[channel.sourceId]?.shownColor,
-                                    labelWidth = labelW,
-                                    numberWidth = numberWidth,
-                                    windowStart = state.windowStart,
-                                    windowEnd = state.windowEnd,
-                                    now = liveNow,
-                                    scrollPx = readScrollPx,
-                                    focusRequester = rowFocus(index),
-                                    selectedRow = focus.selectedRow,
-                                    cursorTime = focus.cursorTime,
-                                    cellMode = focus.cellMode,
-                                    // Favourites has no category list: ◀ goes straight on to the app menu.
-                                    onLeft = if (favouritesMode) {
-                                        { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left) }
-                                    } else {
-                                        { sheetFromGrid = true; sheetOpen = true }
-                                    },
-                                    onEnterCell = {
-                                        cursorTime = System.currentTimeMillis()
-                                        inCellMode = true
-                                        if (okPreviews(channel)) liveVm.onChannelFocused(channel)
-                                    },
-                                    recordingStarts = recordingsByChannel[channel.id].orEmpty(),
-                                    reminderStarts = remindersByChannel[channel.id].orEmpty(),
-                                    onFocused = {
-                                        focusedRow = index
-                                        if (cursorTime !in state.windowStart until state.windowEnd) cursorTime = System.currentTimeMillis()
-                                        if (!effectivePreview || !previewOnOk) liveVm.onChannelFocused(channel)
-                                    },
-                                    onCursor = { cursorTime = it },
-                                    onShow = { p -> selected = channel to p },
-                                    onStep = { delta ->
-                                        val from = stepTarget ?: index
-                                        val to = from + delta
-                                        when {
-                                            to < 0 -> false // ▲ from the first row: up to the control line
-                                            to >= state.channels.size -> true
-                                            else -> { stepTo(to); true }
-                                        }
-                                    },
-                                    onOk = { p -> if (okPreviews(channel)) liveVm.onChannelFocused(channel) else onOk(channel, p) },
-                                    onMenu = { p -> returnTo = null; if (p != null) menuFor = channel to p else channelMenuFor = channel },
-                                    onDetails = { p -> if (p != null) { returnTo = null; detailsFor = channel to p } },
-                                )
                             }
                         }
-                    }
-                    // The now-line, 3 px with its glow, over every row.
-                    if (liveNow in state.windowStart..state.windowEnd) {
-                        val timelinePxWidth = with(density) { timelineW.toPx() }
-                        Box(
-                            Modifier
-                                .padding(start = gx - 1.5.mpx, top = 38.mpx)
-                                .offset { IntOffset((pxAt(liveNow) - scrollPx).roundToInt(), 0) }
-                                .graphicsLayer {
-                                    val x = pxAt(liveNow) - scrollPx
-                                    alpha = if (x >= 0f && x <= timelinePxWidth) 1f else 0f
-                                }
-                                .width(3.mpx)
-                                .fillMaxHeight()
-                                .guideNowLine(stageAccent.accent),
-                        )
+                        // The now-line, 3 px with its glow, over every row.
+                        if (liveNow in state.windowStart..state.windowEnd) {
+                            val timelinePxWidth = with(density) { timelineW.toPx() }
+                            Box(
+                                Modifier
+                                    .padding(start = gx - 1.5.mpx, top = 38.mpx)
+                                    .offset { IntOffset((pxAt(liveNow) - scrollPx).roundToInt(), 0) }
+                                    .graphicsLayer {
+                                        val x = pxAt(liveNow) - scrollPx
+                                        alpha = if (x >= 0f && x <= timelinePxWidth) 1f else 0f
+                                    }
+                                    .width(3.mpx)
+                                    .fillMaxHeight()
+                                    .guideNowLine(stageAccent.accent),
+                            )
+                        }
                     }
                 }
+            }
+            if (switching && !state.loading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { OwnTVSpinner(sizeDp = 44) }
             }
         }
 
@@ -982,6 +996,8 @@ private fun GuideRow(
     scrollPx: () -> Int,
     focusRequester: FocusRequester,
     selectedRow: Boolean,
+    /** This row's channel is the one playing: its label carries the ▶ mark. */
+    tuned: Boolean,
     cursorTime: Long,
     cellMode: Boolean,
     onLeft: () -> Unit,
@@ -1013,7 +1029,7 @@ private fun GuideRow(
     LaunchedEffect(focused, cursorTime, programmes) { if (focused) onShow(programmeAt(programmes, cursorTime)) }
     val rowSelected = focused && !cellMode
     Row(Modifier.fillMaxWidth().height(GuideGridDefaults.RowHeight), verticalAlignment = Alignment.CenterVertically) {
-        GuideChannelLabel(channel, name, dot, selected = selectedRow, numberWidth = numberWidth, modifier = Modifier.width(labelWidth))
+        GuideChannelLabel(channel, name, dot, selected = selectedRow, numberWidth = numberWidth, modifier = Modifier.width(labelWidth), tuned = tuned)
         Box(
             Modifier
                 .weight(1f)

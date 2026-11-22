@@ -258,10 +258,11 @@ internal fun GuideRuler(
 /**
  * A channel's label column: the playlist's 7 px dot, the number (38 wide, 17/700 dim), the
  * logo on a 58×40 plate, the name 17/700, and the Rewind mark when the channel has catch-up (as in
- * the channel lists). The row the focus is in has its number, name and mark in accent.
+ * the channel lists). The row the focus is in has its number, name and mark in accent. The channel
+ * that is playing ([tuned]) has a filled ▶ after its name, focused or not, as TiviMate marks it.
  */
 @Composable
-internal fun GuideChannelLabel(channel: ChannelEntity, name: String, dot: Color?, selected: Boolean, numberWidth: Dp, modifier: Modifier = Modifier) {
+internal fun GuideChannelLabel(channel: ChannelEntity, name: String, dot: Color?, selected: Boolean, numberWidth: Dp, modifier: Modifier = Modifier, tuned: Boolean = false) {
     val a = stageAccent
     Row(
         modifier.padding(start = 8.mpx),
@@ -277,6 +278,7 @@ internal fun GuideChannelLabel(channel: ChannelEntity, name: String, dot: Color?
         )
         LivePlate(channel.displayLogoUrl, 58.mpx, 40.mpx, radius = 10.mpx)
         Text(name, style = stageText(17, 700), color = if (selected) a.accent else StageColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (tuned) OwnTVIcon(OwnTVIcon.PLAY, a.accent, Modifier.size(18.mpx), filled = true)
         if (channel.catchup) OwnTVIcon(OwnTVIcon.REWIND, if (selected) a.accent else StageColors.Dim, Modifier.padding(end = 8.mpx).size(20.mpx))
     }
 }
