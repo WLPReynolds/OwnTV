@@ -1021,8 +1021,32 @@ class EpgViewModel(
             nonFavourite -> list.filter { it.id !in favs }.map { it.id }
             else -> list.filter { it.id in favs }.map { it.id }
         }
-        viewModelScope.launch { moveSaves.withLock { contentOrderDao.saveMove(pid, MediaType.LIVE, contextKey, order, setOf(channel.id)) } }
+        viewModelScope.launch {
+            moveSaves.withLock {
+                val toSave = if (contextKey == tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT) fullFavouriteOrder(pid, order) else order
+                contentOrderDao.saveMove(pid, MediaType.LIVE, contextKey, toSave, setOf(channel.id))
+            }
+        }
         return to
+    }
+
+    /**
+     * The whole Favorites order with the guide's [visible] favourites moved as on screen. Favorites is one
+     * order shared with Live TV and saved whole, while the guide shows only some favourites, so the move
+     * is merged into the full order (see [mergeVisibleFavouriteOrder]). Read under [moveSaves] so the
+     * previous press is already saved. Favourites outside the active playlists keep their saved place
+     * after the rest.
+     */
+    private suspend fun fullFavouriteOrder(pid: Long, visible: List<Long>): List<Long> {
+        val fav = tv.own.owntv.core.database.entity.ContentOrderEntity.FAV_CONTEXT
+        val playlistIds = activeSourceIds(settings, sourceDao, pid, MediaType.LIVE)
+        val effective = channelDao.snapshotFavoritesManual(pid, fav, playlistIds, MAX_CHANNELS).map { it.id }
+        val effectiveSet = effective.toHashSet()
+        // Still favourites, so a row left by an unfavourited channel is dropped as before.
+        val favourites = favoriteDao.observeFavoriteIds(pid, MediaType.LIVE).first().toHashSet()
+        val elsewhere = contentOrderDao.positions(pid, MediaType.LIVE, fav)
+            .sortedBy { it.position }.map { it.itemId }.filter { it !in effectiveSet && it in favourites }
+        return mergeVisibleFavouriteOrder(effective + elsewhere, visible)
     }
 
     /** Puts the channels moved in a guide-own order (see [moveContext]) back where they were left. */
