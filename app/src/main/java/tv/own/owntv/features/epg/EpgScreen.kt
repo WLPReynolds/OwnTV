@@ -372,6 +372,26 @@ fun EpgScreen(
             }
         }
     }
+    // TESTING READOUT (temporary): from asking for a list to that list being drawn. Two frames after the
+    // new list is published: the one that composes it and the one that draws it.
+    val timing by vm.timing.collectAsStateWithLifecycle()
+    var onScreenMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(timing) {
+        val t = timing ?: return@LaunchedEffect
+        onScreenMs = null
+        withFrameNanos { }
+        withFrameNanos { }
+        onScreenMs = android.os.SystemClock.elapsedRealtime() - t.askedAt
+    }
+    // Favourites and the TV Guide are this one screen in two modes (see the shell): a switch between them
+    // starts the other list at its top, not at the row the last one was on.
+    var shownMode by remember { mutableStateOf(favouritesMode) }
+    LaunchedEffect(favouritesMode) {
+        if (shownMode == favouritesMode) return@LaunchedEffect
+        shownMode = favouritesMode
+        focusedRow = 0
+        runCatching { rowListState.scrollToItem(0) }
+    }
     // After a pick from the category list: the first row, once the new list has replaced the old one.
     LaunchedEffect(focusFirstRowOnLoad, switching, state.channels, state.loading) {
         if (!focusFirstRowOnLoad || vm.switchingCategory.value || state.loading) return@LaunchedEffect
@@ -657,6 +677,14 @@ fun EpgScreen(
             }
             if (liveMode) StageTool(text = stringResource(R.string.content_live_list_view), icon = OwnTVIcon.LIST, onClick = onListView)
             Spacer(Modifier.weight(1f))
+            // TESTING READOUT (temporary): see `timing` above.
+            timing?.let { t ->
+                Text(
+                    "data ${t.dataMs} ms · on screen ${onScreenMs?.toString() ?: "…"} ms",
+                    style = stageText(16, 700).copy(fontFeatureSettings = "tnum"), color = stageAccent.accent, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 16.mpx),
+                )
+            }
             matchSummary?.takeIf { review.isEmpty() }?.let {
                 Text(
                     epgMatchSummaryText(it), style = stageText(16, 600), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,

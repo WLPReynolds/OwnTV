@@ -277,6 +277,16 @@ class EpgViewModel(
     @Volatile private var builtFilter: Any? = NotBuilt
     private object NotBuilt
 
+    /**
+     * TESTING READOUT (temporary): when the list now on screen was asked for, and how long the data
+     * took. The screen adds the time until the list is drawn. Read off the TV without adb.
+     */
+    class GuideTiming(val askedAt: Long, val dataMs: Long)
+    private val _timing = MutableStateFlow<GuideTiming?>(null)
+    val timing: StateFlow<GuideTiming?> = _timing.asStateFlow()
+    /** When the first [load] since the last published list was asked for (0: none waiting). */
+    @Volatile private var loadAskedAt = 0L
+
     /** True while the list on screen is another category's and the one asked for is still loading. */
     private val _switchingCategory = MutableStateFlow(false)
     val switchingCategory: StateFlow<Boolean> = _switchingCategory.asStateFlow()
@@ -1095,6 +1105,7 @@ class EpgViewModel(
      *  callers that have just written guide data themselves. */
     fun load(fresh: Boolean = false) {
         if (fresh) readGeneration++
+        if (loadAskedAt == 0L) loadAskedAt = android.os.SystemClock.elapsedRealtime()
         val previous = loadJob
         loadJob = viewModelScope.launch {
             previous?.cancelAndJoin()
@@ -1290,6 +1301,9 @@ class EpgViewModel(
         )
         builtFilter = filter
         _switchingCategory.value = _categoryFilter.value != filter
+        val askedAt = loadAskedAt.takeIf { it > 0 } ?: loadStartedAt
+        loadAskedAt = 0L
+        _timing.value = GuideTiming(askedAt, android.os.SystemClock.elapsedRealtime() - askedAt)
 
         tv.own.owntv.core.CorePerf.log {
             "guide_load channels=${channels.size} rawChannels=${rawChannels.size} " +

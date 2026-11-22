@@ -1442,37 +1442,28 @@ fun OwnTVShell(
                             modifier = Modifier.fillMaxSize(),
                         )
 
-                        // Favourites: the guide fixed to the profile's favourite channels, in their own order.
-                        selectedSection == MainSection.FAVOURITES -> EpgScreen(
-                            onFullscreen = { openFullscreen() },
-                            onPlayChannel = favouritesPlayChannel,
-                            onPlayCatchup = guidePlayCatchup,
-                            previewEnabled = playerMode == PlayerMode.NONE,
-                            favouritesMode = true,
-                            onEntryHook = { guideEntry = it },
-                            onAddEpg = { openEpgAdd = true; onSelectSection(MainSection.SETTINGS) },
-                            restoreFocus = restoreFocus,
-                            onRestored = { restoreFocus = false },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .onFocusChanged { if (it.hasFocus) focusedLayer = ShellLayer.CONTENT }
-                                .focusGroup(),
-                        )
-
-                        selectedSection == MainSection.EPG -> EpgScreen(
-                            onFullscreen = { openFullscreen() },
-                            onPlayChannel = guidePlayChannel,
-                            onPlayCatchup = guidePlayCatchup,
-                            previewEnabled = playerMode == PlayerMode.NONE,
-                            onEntryHook = { guideEntry = it },
-                            onAddEpg = { openEpgAdd = true; onSelectSection(MainSection.SETTINGS) },
-                            restoreFocus = restoreFocus,
-                            onRestored = { restoreFocus = false },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .onFocusChanged { if (it.hasFocus) focusedLayer = ShellLayer.CONTENT }
-                                .focusGroup(),
-                        )
+                        // The TV Guide, and Favourites: the guide fixed to the profile's favourite channels, in
+                        // their own order. One screen in two modes, from this one place, so moving between them
+                        // keeps the screen — toolbar, grid and the preview's video surface — instead of building
+                        // a second copy (a black preview until the stream's next full frame, and a slower switch).
+                        selectedSection == MainSection.EPG || selectedSection == MainSection.FAVOURITES -> {
+                            val favourites = selectedSection == MainSection.FAVOURITES
+                            EpgScreen(
+                                onFullscreen = { openFullscreen() },
+                                onPlayChannel = if (favourites) favouritesPlayChannel else guidePlayChannel,
+                                onPlayCatchup = guidePlayCatchup,
+                                previewEnabled = playerMode == PlayerMode.NONE,
+                                favouritesMode = favourites,
+                                onEntryHook = { guideEntry = it },
+                                onAddEpg = { openEpgAdd = true; onSelectSection(MainSection.SETTINGS) },
+                                restoreFocus = restoreFocus,
+                                onRestored = { restoreFocus = false },
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .onFocusChanged { if (it.hasFocus) focusedLayer = ShellLayer.CONTENT }
+                                    .focusGroup(),
+                            )
+                        }
 
                     }
                 }
