@@ -120,7 +120,7 @@ class EpgViewModel(
     private val reminderManager: tv.own.owntv.core.reminder.ReminderManager,
     private val archiveGuide: tv.own.owntv.core.epg.ArchiveGuideFiller,
     private val contentOrderDao: tv.own.owntv.core.database.dao.ContentOrderDao,
-    /** Only for its invalidation tracker: a write to the channel or programme tables drops [channelReads]. */
+    /** Only for its invalidation tracker: a write to the channel or programme tables drops what loads keep. */
     private val database: tv.own.owntv.core.database.OwnTVDatabase,
 ) : ViewModel() {
 
@@ -428,7 +428,7 @@ class EpgViewModel(
         // Any write to the channels (a playlist refresh) or the programmes (a guide sync, a match top-up)
         // makes the cached reads stale; the next load reads them again.
         database.invalidationTracker.createFlow("channels", "epg_programmes", emitInitialState = false)
-            .onEach { channelReadsDirty = true }
+            .onEach { readGeneration++ }
             .launchIn(viewModelScope)
         // Re-filter the grid as the user types (DB-level, so it searches ALL guide channels, not
         // just the visible rows). drop(1): the screen triggers the initial load itself.
@@ -1091,10 +1091,10 @@ class EpgViewModel(
         return head + tv.own.owntv.core.customize.placePinned(tail.filter { it.id !in pinnedIds }, pinned.sortedBy { it.second })
     }
 
-    /** Rebuilds the list. [fresh] re-reads the database even when [channelReads] looks current: for
+    /** Rebuilds the list. [fresh] re-reads the database even when what is kept looks current: for
      *  callers that have just written guide data themselves. */
     fun load(fresh: Boolean = false) {
-        if (fresh) channelReadsDirty = true
+        if (fresh) readGeneration++
         val previous = loadJob
         loadJob = viewModelScope.launch {
             previous?.cancelAndJoin()
@@ -1139,8 +1139,9 @@ class EpgViewModel(
         // Always retain two recent hours so the centered "now" marker has programmes on its left.
         // Catch-up channels can extend the same window farther back to their archive limit.
         val q = _query.value.trim()
-        val reads = channelReads(playlistIds, ids, q, settings.guideShowEmpty.first())
-        val maxCatchupDays = reads.maxCatchupDays
+        val showEmpty = settings.guideShowEmpty.first()
+        val totals = guideTotals(playlistIds, ids)
+        val maxCatchupDays = totals.maxCatchupDays
         val catchupLookbackMs = if (maxCatchupDays > 0)
             minOf(maxCatchupDays * DAY_MS, CATCHUP_LOOKBACK_CAP_MS) else 0L
         val lookbackMs = maxOf(GUIDE_VISIBLE_PAST_MS, catchupLookbackMs)
@@ -1155,7 +1156,6 @@ class EpgViewModel(
         val cust = customize.observeVisible(pid, MediaType.LIVE).first()
         // Hides written before that read are now in cust; only the ones still being written stay filtered.
         justHidden.removeAll(hideSettled); hiddenWritten.removeAll(hideSettled)
-        val rawChannels = reads.raw
         val favoriteIds = favoriteDao.observeFavoriteIds(pid, MediaType.LIVE).first().toSet()
         favouriteIdsOnScreen = favoriteIds
         val sortGuideMode = settings.sortGuide.first()
@@ -1182,6 +1182,8 @@ class EpgViewModel(
                 historyDao.getForProfileType(pid, MediaType.LIVE).mapTo(HashSet()) { it.itemId }
             else -> null
         }
+        // Only the chosen category is read (see [guideChannels]).
+        val rawChannels = guideChannels(filter, memberIds, playlistIds, ids, q, showEmpty)
         // Provider and A–Z are Live TV's own lists: in a folder, a custom category or Favourites the guide
         // takes the order the Live TV queries give, moved channels in their place; elsewhere, All included,
         // the playlist's order or plain A–Z.
@@ -1212,7 +1214,7 @@ class EpgViewModel(
             // The category first, then the order: a category is a few dozen channels, so the sort no longer
             // runs over every channel of the playlists. Same result — the sort is stable and the category
             // test does not depend on position.
-            val matched = applyEpgMatches(auto, cust, playlistIds, q, reads).let { all ->
+            val matched = applyEpgMatches(auto, cust, playlistIds, q).let { all ->
                 when (filter) {
                     null, tv.own.owntv.core.live.LiveKey.All -> all
                     tv.own.owntv.core.live.LiveKey.Catchup -> all.filter { it.catchup }
@@ -1238,7 +1240,7 @@ class EpgViewModel(
                 SettingsRepository.GuideSort.LIVE_TV -> matched.sortedWith(byLiveTv ?: byProvider)
             }
         }.let { list -> if (q.isNotEmpty()) list else applyGuideOrder(pid, list, filter, sortGuideMode, favoriteIds) }
-        val stored = reads.stored
+        val stored = totals.stored
 
 
         // Per-row programmes are loaded in ONE batched query and grouped into rowCache here, instead of
@@ -1302,33 +1304,83 @@ class EpgViewModel(
         // the full window in one query, so the history is simply there when the row is drawn.
     }
 
-    /** What a load reads from the channel and programme tables, kept between loads (see [channelReads]). */
-    private data class ChannelReadKey(val playlistIds: List<Long>, val ids: List<Long>, val showEmpty: Boolean)
-    private class ChannelReads(val key: ChannelReadKey, val raw: List<ChannelEntity>, val stored: Int, val maxCatchupDays: Int)
-    @Volatile private var channelReads: ChannelReads? = null
-    /** Set by any write to the channel or programme tables (see init), and by [load] with fresh. */
-    @Volatile private var channelReadsDirty = true
-
     /**
-     * Every guide channel of the playlists, the stored programme count and the longest catch-up: the
-     * expensive part of a load (a pass over every channel and the programme table), and the same for
-     * every category, order and favourite change. So it is read once and kept until the tables are
-     * written to or what it was read for changes; switching category only re-filters it in memory.
-     * A search reads afresh each time and is not kept.
+     * Bumped by every write to the channel or programme tables (see init), and by [load] with fresh.
+     * What is kept below was read at some generation and is good while it is still the current one.
      */
-    private suspend fun channelReads(playlistIds: List<Long>, ids: List<Long>, query: String, showEmpty: Boolean): ChannelReads {
-        val key = ChannelReadKey(playlistIds, ids, showEmpty)
-        if (query.isEmpty()) channelReads?.takeIf { it.key == key && !channelReadsDirty }?.let { return it }
-        // Cleared before reading, so a write that lands during the read marks it stale again.
-        if (query.isEmpty()) channelReadsDirty = false
-        val raw = if (showEmpty) channelDao.channelsForGuide(playlistIds, query, MAX_CHANNELS)
-            else channelDao.channelsWithGuide(ids, query, MAX_CHANNELS)
-        val reads = ChannelReads(key, raw, epgDao.countForSources(ids), channelDao.maxCatchupDays(playlistIds))
-        if (query.isEmpty()) channelReads = reads
-        return reads
+    @Volatile private var readGeneration = 0L
+
+    /** The stored programme count and the longest catch-up: the same for every category, so kept. */
+    private class GuideTotals(val key: List<Long>, val generation: Long, val stored: Int, val maxCatchupDays: Int)
+    @Volatile private var keptTotals: GuideTotals? = null
+
+    private suspend fun guideTotals(playlistIds: List<Long>, ids: List<Long>): GuideTotals {
+        val key = playlistIds + listOf(-1L) + ids
+        keptTotals?.takeIf { it.key == key && it.generation == readGeneration }?.let { return it }
+        val generation = readGeneration // read first: a write during the reads leaves them stale
+        return GuideTotals(key, generation, epgDao.countForSources(ids), channelDao.maxCatchupDays(playlistIds))
+            .also { keptTotals = it }
     }
 
-    private class MatchLookup(val reads: ChannelReads, val remoteIds: List<String>, val resolved: Map<String, List<ChannelEntity>>)
+    /** One category's read: what it was asked for, and when. */
+    private data class ScopeKey(
+        val filter: tv.own.owntv.core.live.LiveKey?,
+        val members: Set<Long>?,
+        val playlistIds: List<Long>,
+        val ids: List<Long>,
+        val showEmpty: Boolean,
+    )
+    private class ScopeRead(val generation: Long, val channels: List<ChannelEntity>)
+
+    /** The last few categories read, so going back and forth between them costs nothing. */
+    private val scopeReads = object : LinkedHashMap<ScopeKey, ScopeRead>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ScopeKey, ScopeRead>?) = size > SCOPE_READS_KEPT
+    }
+
+    /**
+     * The guide channels of the category being viewed, and only those: a provider folder by its
+     * category, Catch-up by its flag, Favourites / History / a custom category by their channel ids,
+     * each straight from the database. Reading every channel of the playlists and filtering after was
+     * seconds on a large playlist and, past the row limit, left whole categories empty. All channels is
+     * still the whole list (up to the limit). The last few categories are kept until the tables are
+     * written to; a search always reads afresh.
+     */
+    private suspend fun guideChannels(
+        filter: tv.own.owntv.core.live.LiveKey?,
+        memberIds: Set<Long>?,
+        playlistIds: List<Long>,
+        ids: List<Long>,
+        query: String,
+        showEmpty: Boolean,
+    ): List<ChannelEntity> {
+        val key = ScopeKey(filter, memberIds, playlistIds, ids, showEmpty)
+        if (query.isEmpty()) synchronized(scopeReads) { scopeReads[key] }?.takeIf { it.generation == readGeneration }?.let { return it.channels }
+        val generation = readGeneration
+        val channels = when (filter) {
+            is tv.own.owntv.core.live.LiveKey.Folder ->
+                if (showEmpty) channelDao.channelsForGuideInCategory(playlistIds, filter.id, query, MAX_CHANNELS)
+                else channelDao.channelsWithGuideInCategory(ids, filter.id, query, MAX_CHANNELS)
+            tv.own.owntv.core.live.LiveKey.Catchup ->
+                if (showEmpty) channelDao.channelsForGuideCatchup(playlistIds, query, MAX_CHANNELS)
+                else channelDao.channelsWithGuideCatchup(ids, query, MAX_CHANNELS)
+            null, tv.own.owntv.core.live.LiveKey.All ->
+                if (showEmpty) channelDao.channelsForGuide(playlistIds, query, MAX_CHANNELS)
+                else channelDao.channelsWithGuide(ids, query, MAX_CHANNELS)
+            // Favourites, History, a custom category: their channels by id, in batches under SQLite's
+            // parameter ceiling, then back into the one order the single queries give.
+            else -> memberIds.orEmpty().toList().chunked(QUERY_CHUNK)
+                .flatMap { chunk ->
+                    if (showEmpty) channelDao.channelsForGuideByIds(playlistIds, chunk, query)
+                    else channelDao.channelsWithGuideByIds(ids, chunk, query)
+                }
+                .sortedWith(compareBy<ChannelEntity, Int?>(nullsFirst<Int>()) { it.number }.thenBy { it.name })
+                .take(MAX_CHANNELS)
+        }
+        if (query.isEmpty()) synchronized(scopeReads) { scopeReads[key] = ScopeRead(generation, channels) }
+        return channels
+    }
+
+    private class MatchLookup(val generation: Long, val playlistIds: List<Long>, val remoteIds: List<String>, val resolved: Map<String, List<ChannelEntity>>)
     @Volatile private var matchLookup: MatchLookup? = null
 
     /** Apply per-channel manual EPG overrides to the auto-matched guide list. */
@@ -1337,7 +1389,6 @@ class EpgViewModel(
         cust: tv.own.owntv.core.customize.SectionCustomizations,
         playlistIds: List<Long>,
         query: String,
-        reads: ChannelReads,
     ): List<ChannelEntity> {
         val matches = cust.epgMatches
         if (matches.isEmpty()) return auto
@@ -1362,12 +1413,14 @@ class EpgViewModel(
             // the match was made under, which is not the one the channel has after a re-import. Only an
             // unambiguous tail is used — two playlists carrying one provider id must not pick one.
             val remoteIds = missingKeys.mapNotNull { CustomizeKeys.tailOf(it).takeIf { r -> r.isNotEmpty() } }.distinct()
-            // Kept with the channel reads it was resolved against: the same channels, the same answer.
-            val resolved = matchLookup?.takeIf { it.reads === reads && it.remoteIds == remoteIds }?.resolved
+            // Kept until the channel table is written to: the same channels, the same answer.
+            val generation = readGeneration
+            val resolved = matchLookup
+                ?.takeIf { it.generation == generation && it.playlistIds == playlistIds && it.remoteIds == remoteIds }?.resolved
                 ?: remoteIds.chunked(QUERY_CHUNK)
                     .flatMap { channelDao.findByRemoteIds(playlistIds, it) }
                     .groupBy { it.remoteId ?: it.name }
-                    .also { matchLookup = MatchLookup(reads, remoteIds, it) }
+                    .also { matchLookup = MatchLookup(generation, playlistIds, remoteIds, it) }
             for (key in missingKeys) {
                 val epgId = matches[key] ?: continue
                 val ch = resolved[CustomizeKeys.tailOf(key)]?.singleOrNull() ?: continue
@@ -1402,6 +1455,8 @@ class EpgViewModel(
         private const val GUIDE_DATA_SETTLE_MS = 10_000L
         /** How long [load] waits for a second call before it starts (see there). */
         private const val LOAD_COALESCE_MS = 40L
+        /** Categories whose channel reads are kept (see [guideChannels]). */
+        private const val SCOPE_READS_KEPT = 8
         private const val HALF_HOUR_MS = 30L * 60 * 1000
         private const val GUIDE_VISIBLE_PAST_MS = 2L * 60 * 60 * 1000
         // How many guide rows to keep read. A screen shows ~8; this is generous enough that scrolling

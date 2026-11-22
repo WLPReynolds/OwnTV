@@ -358,6 +358,8 @@ fun EpgScreen(
         }
     }
     // Back to the grid at the row focus was on (after a menu, the sheet, a jump).
+    /** A category was picked: the first row takes focus once that category's list is on screen. */
+    var focusFirstRowOnLoad by remember { mutableStateOf(false) }
     fun focusGrid(row: Int = focusedRow) {
         val i = row.coerceIn(0, (state.channels.size - 1).coerceAtLeast(0))
         scope.launch {
@@ -369,6 +371,15 @@ fun EpgScreen(
                 runCatching { rowFocus(i).requestFocus() }
             }
         }
+    }
+    // After a pick from the category list: the first row, once the new list has replaced the old one.
+    LaunchedEffect(focusFirstRowOnLoad, switching, state.channels, state.loading) {
+        if (!focusFirstRowOnLoad || vm.switchingCategory.value || state.loading) return@LaunchedEffect
+        focusFirstRowOnLoad = false
+        if (state.channels.isEmpty()) return@LaunchedEffect // nothing to focus: it stays on the button
+        focusedRow = 0
+        runCatching { rowListState.scrollToItem(0) }
+        focusGrid(0)
     }
     // The cursor stays in view: scroll only when it reaches an edge, by one slot of room.
     LaunchedEffect(cursorTime, timelinePx) {
@@ -820,10 +831,12 @@ fun EpgScreen(
                             if (followsLive) liveVm.select(key) // one remembered category for both
                         }
                     }
+                    // Focus goes to the category button before the sheet closes, so it never drops out of
+                    // the guide (the TV then hands it to the side menu); the first row takes it once the
+                    // picked category's list is on screen.
+                    runCatching { categoryTool.requestFocus() }
                     sheetOpen = false
-                    focusedRow = 0
-                    scope.launch { runCatching { rowListState.scrollToItem(0) } }
-                    focusGrid(0)
+                    focusFirstRowOnLoad = true
                 },
                 onLongSelect = {},
                 onNavigateRight = { sheetOpen = false; focusGrid() },

@@ -13,6 +13,11 @@ on:
       - selfbuilt-ci
       - step4-rebrand
   workflow_dispatch:
+    inputs:
+      core_ref:
+        description: "OwnTV_Core branch to build against (a feature branch that changes Core too)"
+        required: false
+        default: step4-rebrand
 
 permissions:
   contents: read
@@ -36,7 +41,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: WLPReynolds/OwnTV_Core
-          ref: step4-rebrand
+          # Pushes build against step4-rebrand; a manual run can name a Core feature branch.
+          ref: ${{ inputs.core_ref || 'step4-rebrand' }}
           path: core
 
       - name: Checkout OwnTV_libmpv (our fork)
