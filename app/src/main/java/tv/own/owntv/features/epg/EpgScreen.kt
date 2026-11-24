@@ -372,11 +372,12 @@ fun EpgScreen(
             }
         }
     }
-    // TESTING READOUT (temporary): from asking for a list to that list being drawn. Two frames after the
-    // new list is published: the one that composes it and the one that draws it.
+    // TESTING READOUT: from asking for a list to that list being drawn. Two frames after the new list
+    // is published: the one that composes it and the one that draws it. Off unless GUIDE_TIMING_READOUT.
     val timing by vm.timing.collectAsStateWithLifecycle()
     var onScreenMs by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(timing) {
+        if (!GUIDE_TIMING_READOUT) return@LaunchedEffect
         val t = timing ?: return@LaunchedEffect
         onScreenMs = null
         withFrameNanos { }
@@ -680,8 +681,8 @@ fun EpgScreen(
             }
             if (liveMode) StageTool(text = stringResource(R.string.content_live_list_view), icon = OwnTVIcon.LIST, onClick = onListView)
             Spacer(Modifier.weight(1f))
-            // TESTING READOUT (temporary): see `timing` above.
-            timing?.let { t ->
+            // TESTING READOUT: see `timing` above. Hidden; [GUIDE_TIMING_READOUT] shows it again.
+            if (GUIDE_TIMING_READOUT) timing?.let { t ->
                 Text(
                     "data ${t.dataMs} ms · on screen ${onScreenMs?.toString() ?: "…"} ms",
                     style = stageText(16, 700).copy(fontFeatureSettings = "tnum"), color = stageAccent.accent, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -1179,3 +1180,10 @@ private fun GuideKeyHints(cellMode: Boolean) {
     }
     tv.own.owntv.ui.stage.StageKeyHints(hints)
 }
+
+/**
+ * The guide's timing readout ("data … ms · on screen … ms" in the toolbar), for judging how quickly a
+ * list change lands on a TV without adb. Off; set true for a test build. The view model keeps timing
+ * either way (one clock read per load).
+ */
+private const val GUIDE_TIMING_READOUT = false
