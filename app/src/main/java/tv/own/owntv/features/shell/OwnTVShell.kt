@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import tv.own.owntv.core.epg.displayLogoUrl
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -1110,9 +1112,20 @@ fun OwnTVShell(
             },
     ) {
       // Browse UI — hidden while the player is fullscreen (stays visible behind the docked mini-player).
-      if (playerMode != PlayerMode.FULLSCREEN) {
+      // The TV Guide and Favourites stay composed under the player, invisible and closed to focus, so
+      // leaving full screen finds the guide as it was: no rebuild, no reload of its list and programmes.
+      // Other sections are dropped as before (Home's trailers, for one, must not run behind the player).
+      val fullscreen = playerMode == PlayerMode.FULLSCREEN
+      val guideBehindPlayer = fullscreen && (selectedSection == MainSection.EPG || selectedSection == MainSection.FAVOURITES)
+      if (!fullscreen || guideBehindPlayer) {
         Column(
             modifier = Modifier.fillMaxSize()
+                .then(
+                    if (guideBehindPlayer) Modifier
+                        .graphicsLayer { alpha = 0f }
+                        .focusProperties { onEnter = { cancelFocusChange() } }
+                    else Modifier,
+                )
                 // One group with a restorer: leaving for the mini player and coming back lands on the
                 // exact control that was focused, without every screen having to remember its own.
                 .focusRequester(shellContentFocus)

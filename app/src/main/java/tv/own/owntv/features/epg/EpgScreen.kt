@@ -422,7 +422,10 @@ fun EpgScreen(
         if (!restoreFocus || state.loading || switching || state.channels.isEmpty()) return@LaunchedEffect
         val playing = previewChannel.takeIf { vm.playerClosed && previewEnabled }
         val playingIdx = playing?.let { ch -> state.channels.indexOfFirst { it.id == ch.id } } ?: -1
-        if (playing != null && playingIdx < 0 && categoryOpenedFor != playing.id) {
+        // Favourites is a fixed list: it is never swapped for the channel's own category. A channel just
+        // made a favourite (from the player's bar) is in it once the favourites reload lands; one that is
+        // not a favourite is simply not there, and the old target is used.
+        if (playing != null && playingIdx < 0 && categoryOpenedFor != playing.id && !favouritesMode) {
             categoryOpenedFor = playing.id
             val key = liveVm.railKeyOf(playing)
             if (key != (categoryKey ?: LiveKey.All)) {

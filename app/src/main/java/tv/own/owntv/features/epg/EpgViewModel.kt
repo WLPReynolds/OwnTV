@@ -435,6 +435,19 @@ class EpgViewModel(
         runCatching { epgDao.programmeById(programmeId) }.getOrNull()
 
     init {
+        // A favourite added or removed anywhere — the guide, the player's bar, Live TV — changes the
+        // Favourites list and the "Favourites first" order, so either one on screen is rebuilt.
+        settings.activeProfileId
+            .flatMapLatest { pid -> if (pid < 0) flowOf(emptyList()) else favoriteDao.observeFavoriteIds(pid, MediaType.LIVE) }
+            .map { it.toSet() }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach {
+                if (_categoryFilter.value == tv.own.owntv.core.live.LiveKey.Favorites ||
+                    settings.sortGuide.first() == SettingsRepository.GuideSort.FAVORITES
+                ) load()
+            }
+            .launchIn(viewModelScope)
         // Any write to the channels (a playlist refresh) or the programmes (a guide sync, a match top-up)
         // makes the cached reads stale; the next load reads them again.
         database.invalidationTracker.createFlow("channels", "epg_programmes", emitInitialState = false)
@@ -653,8 +666,7 @@ class EpgViewModel(
             } else {
                 favoriteDao.add(tv.own.owntv.core.database.entity.FavoriteEntity(profileId = pid, mediaType = MediaType.LIVE, itemId = channel.id))
             }
-            // The "Favorites" guide sort shows only favourited channels — refresh it to match.
-            if (settings.sortGuide.first() == SettingsRepository.GuideSort.FAVORITES) load()
+            // The guide reloads itself on the change (see init).
         }
     }
 
