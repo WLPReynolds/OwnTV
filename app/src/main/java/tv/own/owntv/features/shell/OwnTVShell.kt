@@ -2139,7 +2139,10 @@ fun OwnTVShell(
         val updateCheckOnStart by settingsRepo.updateCheckOnStart.collectAsStateWithLifecycle(initialValue = false)
         LaunchedEffect(updateCheckOnStart) {
             // Once per launch: a rebuilt shell must not bring the "latest version" card back.
-            if (updateCheckOnStart && !showStartupToast && !shellVm.startupUpdateCheckDone) {
+            // Not while the fork has no updates to offer (see APP_UPDATES_AVAILABLE).
+            if (tv.own.owntv.features.update.APP_UPDATES_AVAILABLE &&
+                updateCheckOnStart && !showStartupToast && !shellVm.startupUpdateCheckDone
+            ) {
                 kotlinx.coroutines.delay(5_000)
                 shellVm.startupUpdateCheckDone = true
                 showStartupToast = true

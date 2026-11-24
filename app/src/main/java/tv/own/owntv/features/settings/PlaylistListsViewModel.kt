@@ -2,6 +2,9 @@ package tv.own.owntv.features.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,23 +46,38 @@ class PlaylistListsViewModel(
 
     fun clearOutcome() { _outcome.value = Outcome.None }
 
+    /** The export being written, until it has started the server or failed. [stop] cancels it. */
+    private var exportJob: Job? = null
+
     fun startExport(source: SourceEntity) {
-        viewModelScope.launch {
+        exportJob?.cancel()
+        exportJob = viewModelScope.launch {
             _outcome.value = Outcome.Preparing
             val profileId = settings.activeProfileId.first()
             lists.export(source.id, profileId, companion.backupExportDir).fold(
                 onSuccess = { file ->
+                    // Left while it was still being written: no server for a screen that has closed.
+                    ensureActive()
                     companion.startForBackupDownload(CompanionLink.DEFAULT_PORT, file)
                     _outcome.value = Outcome.None
                 },
-                onFailure = { _outcome.value = Outcome.ExportFailed(it.toString().take(300)) },
+                onFailure = {
+                    if (it is CancellationException) throw it // stopped, not failed
+                    _outcome.value = Outcome.ExportFailed(it.toString().take(300))
+                },
             )
         }
     }
 
     fun startImport() = companion.startForBackupRestore(CompanionLink.DEFAULT_PORT)
 
-    fun stop() = companion.stop()
+    /** Back or Stop: an export still being written is abandoned before it can start the server. */
+    fun stop() {
+        exportJob?.cancel()
+        exportJob = null
+        if (_outcome.value == Outcome.Preparing) _outcome.value = Outcome.None
+        companion.stop()
+    }
 
     fun importFile(source: SourceEntity, file: File) {
         viewModelScope.launch {
