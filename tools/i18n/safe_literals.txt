@@ -202,6 +202,46 @@
 1	technical	app/src/main/java/tv/own/owntv/features/more/MoreScreen.kt	DEV
 1	technical	app/src/main/java/tv/own/owntv/features/more/MoreScreen.kt	Developer
 1	technical	app/src/main/java/tv/own/owntv/features/more/MoreScreen.kt	▶
+3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	\0
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	%,d %s
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	%.1f GB
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	%.1f MB
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	%d MB
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	+
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	,
+1	file-path	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	-shm
+1	file-path	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	-wal
+1	sql	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	CREATE VIRTUAL
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Database
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Downloads in app storage
+2	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Everything else
+3	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Guide
+1	sql	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	IFNULL(length(CAST(`$it` AS BLOB)), 0)
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Image cache
+3	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Live channels
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Measuring…
+3	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Movies
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Other files
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	OwnTV
+1	sql	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	PRAGMA table_info(`$table`)
+1	sql	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	SELECT COUNT(*), TOTAL($payload) FROM `$table`
+1	sql	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+2	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Search index
+3	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Series
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	Storage on this TV
+1	sql	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	_fts
+3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	channels
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	epg_
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	epg_programmes
+3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	episodes
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	image_cache
+3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	movies
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	programmes
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	seasons
+3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	series
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	series_sort_order
+1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	tv_provider_programs
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	~
 5	empty	app/src/main/java/tv/own/owntv/features/movies/MovieViewModel.kt	\0
 1	technical	app/src/main/java/tv/own/owntv/features/movies/MovieViewModel.kt	${StorageAccess.sanitize(movie.name)}.${movie.containerExt ?: StorageAccess.extOf(movie.streamUrl)}
 1	technical	app/src/main/java/tv/own/owntv/features/movies/MovieViewModel.kt	MOVIE
