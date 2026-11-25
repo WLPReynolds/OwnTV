@@ -844,14 +844,24 @@ fun StagePoster(
             }
         }
         Spacer(Modifier.height(12.mpx))
-        Text(
-            title,
-            style = if (line != null) stageText(18, 700) else stageText(if (compact) 15.5f else 17f, if (focused) 700 else 600),
-            color = if (focused || line != null) stageTone(Color.White, StageColors.Text) else StageColors.Muted,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (line != null) Text(line, style = stageText(15, 400), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Every poster the same height, whatever its title: a title in another script is drawn with a
+        // fallback font whose line is a few pixels taller, and a grid scrolls a focused poster into view
+        // by its own height, so in a row of mixed titles each ◀/▶ scrolled by a different amount and the
+        // row jumped. The lines sit in boxes of a fixed height instead.
+        Box(Modifier.height(if (line != null) 27.mpx else if (compact) 24.mpx else 26.mpx), contentAlignment = Alignment.CenterStart) {
+            Text(
+                title,
+                style = if (line != null) stageText(18, 700) else stageText(if (compact) 15.5f else 17f, if (focused) 700 else 600),
+                color = if (focused || line != null) stageTone(Color.White, StageColors.Text) else StageColors.Muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (line != null) {
+            Box(Modifier.height(22.mpx), contentAlignment = Alignment.CenterStart) {
+                Text(line, style = stageText(15, 400), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 
