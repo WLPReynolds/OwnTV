@@ -158,6 +158,12 @@ class OwnTVApp : Application(), SingletonImageLoader.Factory, androidx.work.Conf
             kotlinx.coroutines.delay(SPORTS_START_DELAY_MS)
             runCatching { GlobalContext.get().get<tv.own.owntv.core.sports.SportsRepository>().appStarted() }
         }
+        // The guide download kept for match top-ups is only read for 24 h; past that it is deleted here
+        // rather than held until the next guide sync replaces it. File listing and deletes, no database.
+        appScope.launch {
+            kotlinx.coroutines.delay(SPORTS_START_DELAY_MS)
+            runCatching { GlobalContext.get().get<tv.own.owntv.core.repository.EpgRepository>().sweepStaleGuideCaches() }
+        }
         // Local auto-sync: the paired-only listener and the moments a pass is tried (OwnTV to the
         // front or the back, the network back). Core owns what that means; no hourly check on a TV.
         runCatching { GlobalContext.get().get<tv.own.owntv.core.sync.work.LocalAutoSyncStarter>().start(periodic = false) }
