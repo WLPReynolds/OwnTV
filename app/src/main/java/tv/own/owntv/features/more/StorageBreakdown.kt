@@ -46,9 +46,11 @@ internal class StorageReport(
     val databaseParts: List<StoragePart>,
     val imageCacheBytes: Long,
     val downloadsBytes: Long,
+    /** Files outside the database the app keeps on purpose, each measured on its own (see [measureStorage]). */
+    val fileParts: List<StoragePart>,
     val otherBytes: Long,
 ) {
-    val totalBytes get() = databaseBytes + imageCacheBytes + downloadsBytes + otherBytes
+    val totalBytes get() = databaseBytes + imageCacheBytes + downloadsBytes + fileParts.sumOf { it.bytes } + otherBytes
 }
 
 /** Which part of the breakdown a table belongs to; null for everything else. */
@@ -121,9 +123,26 @@ internal suspend fun measureStorage(context: Context, db: OwnTVDatabase): Storag
     // the external cache live under it), which Android counts in the app's data too.
     val everything = (dataDir?.let(::dirSize) ?: 0L) +
         (context.getExternalFilesDir(null)?.parentFile?.let(::dirSize) ?: 0L)
-    val otherBytes = (everything - databaseBytes - imageCacheBytes - downloadsBytes).coerceAtLeast(0L)
 
-    StorageReport(databaseBytes, parts, imageCacheBytes, downloadsBytes, otherBytes)
+    // Files kept outside the database, by what writes them. The guide download is each guide source's
+    // whole XMLTV, kept uncompressed in the cache so a later match can top up programmes without
+    // downloading it again (EpgRepository); a portal source keeps its JSON guide the same way.
+    val cache = context.cacheDir
+    fun cacheFiles(match: (String) -> Boolean) = cache.listFiles { f -> f.isFile && match(f.name) }.orEmpty()
+    val guideFiles = cacheFiles { (it.startsWith("epg_") && (it.endsWith(".xmltv") || it.endsWith(".xmltv.tmp"))) || it.startsWith("portal_epg_") }
+    val recordingScratch = cacheFiles { it.startsWith("owntv-dash-") }
+    val fileParts = listOf(
+        StoragePart("Guide download (cached)", guideFiles.sumOf { it.length() }, if (guideFiles.isEmpty()) null else count(guideFiles.size.toLong(), "files")),
+        StoragePart("Timeshift buffer", dirSize(File(context.noBackupFilesDir, "timeshift")), null),
+        StoragePart("Channel logo art", dirSize(File(cache, "tv-live-logo-art")), null),
+        StoragePart("Lists export", dirSize(File(cache, "remote-backup-export")), null),
+        StoragePart("Recording scratch", recordingScratch.sumOf { it.length() }, null),
+    )
+    val otherBytes = (everything - databaseBytes - imageCacheBytes - downloadsBytes - fileParts.sumOf { it.bytes }).coerceAtLeast(0L)
+
+    // Only what holds something, but the guide download always (it is the line being looked for).
+    StorageReport(databaseBytes, parts, imageCacheBytes, downloadsBytes,
+        fileParts.filter { it.bytes > 0 || it.label.startsWith("Guide") }, otherBytes)
 }
 
 private fun count(n: Long, what: String) = String.format(Locale.ROOT, "%,d %s", n, what)
@@ -160,6 +179,7 @@ internal fun StorageBreakdownTile(modifier: Modifier = Modifier) {
                 r.databaseParts.forEach { StorageLine("   " + it.label, "~" + megabytes(it.bytes), it.rows) }
                 StorageLine("Image cache", megabytes(r.imageCacheBytes), null, strong = true)
                 StorageLine("Downloads in app storage", megabytes(r.downloadsBytes), null, strong = true)
+                r.fileParts.forEach { StorageLine(it.label, megabytes(it.bytes), it.rows, strong = true) }
                 StorageLine("Other files", megabytes(r.otherBytes), null, strong = true)
             }
         }
