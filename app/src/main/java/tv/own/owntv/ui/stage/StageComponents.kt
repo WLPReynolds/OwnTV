@@ -163,15 +163,23 @@ fun StageSurface(
     val palette = LocalStagePalette.current
     Box(
         modifier = modifier
+            // Focusable outside the lift (see stageLift).
+            .stageClickable(interaction, enabled, onClick, onLongClick)
             .stageLift(focused, focusStyle)
-            .then(if (focused) Modifier.stageFocusDecor(focusStyle, radius, accent, palette) else idle)
-            .stageClickable(interaction, enabled, onClick, onLongClick),
+            .then(if (focused) Modifier.stageFocusDecor(focusStyle, radius, accent, palette) else idle),
         contentAlignment = contentAlignment,
     ) { content(focused) }
 }
 
 /** The PRIMARY (1.04) and POSTER (1.08, from 50% 40%) lift; FX and FILLED stay put. An episode lifts 1.06 from 50% 30%. */
 @Composable
+/**
+ * The focus lift: a scale drawn on the item. It must sit INSIDE the focusable (the clickable), never
+ * around it. A list or grid keeps the focused item in view by that item's bounds, and bounds read
+ * through a scale grow with it: while the lift animated, the focused poster looked 8% taller and
+ * shifted, so a grid scrolled to follow and settled back, and every ◀/▶ on any row but the top one
+ * made the row jump. Inside, the bounds stay the item's real size and the picture still lifts.
+ */
 private fun Modifier.stageLift(focused: Boolean, style: StageFocus, episode: Boolean = false): Modifier {
     val lift = when {
         episode -> 1.06f
@@ -807,8 +815,9 @@ fun StagePoster(
     Column(
         modifier
             .width(width)
-            .stageLift(focused, StageFocus.POSTER)
-            .stageClickable(interaction, true, onClick, onLongClick),
+            // Focusable outside the lift (see stageLift).
+            .stageClickable(interaction, true, onClick, onLongClick)
+            .stageLift(focused, StageFocus.POSTER),
     ) {
         Box(
             Modifier
@@ -891,8 +900,9 @@ fun StageStill(
     Column(
         modifier
             .width(width)
-            .stageLift(focused, StageFocus.POSTER)
-            .stageClickable(interaction, true, onClick, null),
+            // Focusable outside the lift (see stageLift).
+            .stageClickable(interaction, true, onClick, null)
+            .stageLift(focused, StageFocus.POSTER),
     ) {
         Box(
             Modifier
@@ -965,8 +975,9 @@ fun StageEpisode(
     Column(
         modifier
             .width(width)
-            .stageLift(focused, StageFocus.POSTER, episode = true)
-            .stageClickable(interaction, true, onClick, onLongClick),
+            // Focusable outside the lift (see stageLift).
+            .stageClickable(interaction, true, onClick, onLongClick)
+            .stageLift(focused, StageFocus.POSTER, episode = true),
     ) {
         Box(
             Modifier

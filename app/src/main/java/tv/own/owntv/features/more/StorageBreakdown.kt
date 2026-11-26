@@ -146,7 +146,7 @@ internal fun StorageBreakdownTile(modifier: Modifier = Modifier) {
     val db: OwnTVDatabase = koinInject()
     val report by produceState<StorageReport?>(null) { value = runCatching { measureStorage(context, db) }.getOrNull() }
     val accent = stageAccent.accent
-    StageTile(modifier.width(640.mpx)) {
+    StageTile(modifier.width(1000.mpx)) {
         Column {
             Row(horizontalArrangement = Arrangement.spacedBy(12.mpx)) {
                 Text("Storage on this TV", style = stageText(22, 800), color = StageColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -170,8 +170,8 @@ internal fun StorageBreakdownTile(modifier: Modifier = Modifier) {
 private fun StorageLine(label: String, size: String, detail: String?, strong: Boolean = false) {
     Row(Modifier.padding(top = 4.mpx), horizontalArrangement = Arrangement.spacedBy(10.mpx)) {
         Text(label, style = stageText(15.5f, if (strong) 700 else 500), color = if (strong) StageColors.Text else StageColors.Muted,
-            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(260.mpx))
-        Text(size, style = stageText(15.5f, 700), color = StageColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(100.mpx))
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(330.mpx))
+        Text(size, style = stageText(15.5f, 700), color = StageColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(150.mpx))
         detail?.let { Text(it, style = stageText(15.5f, 500), color = StageColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
 }
