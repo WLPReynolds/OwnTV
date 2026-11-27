@@ -502,7 +502,7 @@ private fun SourceRow(
     }.joinToString(sep)
     val status = when {
         isDeleting -> stringResource(R.string.settings_sources_deleting)
-        activeSync != null -> resyncProgressPercent(activeSync.baseItemCount, activeSync.totalProcessed)
+        activeSync != null -> resyncProgressPercent(activeSync.baseItemCount, activeSync.progressProcessed)
             ?.let { stringResource(R.string.sync_progress_percent, it) } ?: stringResource(R.string.sync_progress_syncing)
         isDefault -> stringResource(R.string.settings_sources_default)
         else -> null
