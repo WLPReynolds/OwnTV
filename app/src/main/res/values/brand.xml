@@ -8,6 +8,19 @@
     <string name="fork_hold_ok_hide" translatable="false">Hide or show, then next</string>
     <string name="fork_lists_export" translatable="false">Export lists</string>
     <string name="fork_lists_import" translatable="false">Import edits</string>
+    <string name="fork_skip_hidden_action_off" translatable="false">Hidden categories: downloaded</string>
+    <string name="fork_skip_hidden_action_on" translatable="false">Hidden categories: not downloaded</string>
+    <string name="fork_skip_hidden_on_title" translatable="false">Stop downloading hidden categories?</string>
+    <string name="fork_skip_hidden_on_message" translatable="false">From now on, refreshing %1$s leaves out every Live, Movies and Series category that is hidden in all your profiles. What is already stored for them is removed, including any favourites, watch history and progress in them, and from its next update the guide keeps listings only for the channels you keep.
+
+New categories still download as normal. Unhide a category and it comes back at the next refresh.
+
+The playlist refreshes now.</string>
+    <string name="fork_skip_hidden_off_title" translatable="false">Download hidden categories again?</string>
+    <string name="fork_skip_hidden_off_message" translatable="false">Refreshing %1$s will download every category again, hidden or not. They stay hidden; they just take up space again.
+
+The playlist refreshes now.</string>
+    <string name="fork_skip_hidden_confirm" translatable="false">Refresh now</string>
     <string name="fork_lists_export_title" translatable="false">Send lists to your computer</string>
     <string name="fork_lists_export_body" translatable="false">On a computer on the same Wi-Fi, open the address shown, enter the PIN and download the lists file. Open it in the Slightly Good TV editor, make your changes and save them.</string>
     <string name="fork_lists_import_title" translatable="false">Receive edits from your computer</string>

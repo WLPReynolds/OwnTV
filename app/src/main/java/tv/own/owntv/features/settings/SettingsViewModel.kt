@@ -1266,6 +1266,19 @@ class SettingsViewModel(
      * running would both be killed by the measurement and corrupt its result.
      */
     /** Per-playlist "Ignore connection limit": Multiview and recordings stop counting the provider's limit. */
+    /** Playlists set to "Don't download hidden categories" (see SettingsRepository.skipHiddenCategorySources). */
+    val skipHiddenCategorySources: StateFlow<Set<Long>> = settings.skipHiddenCategorySources
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** Switch it for [source], then refresh so it takes effect now: the skipped categories' items go,
+     *  or come back when it is switched off. */
+    fun setSkipHiddenCategories(source: SourceEntity, skip: Boolean) {
+        viewModelScope.launch {
+            settings.setSkipHiddenCategories(source.id, skip)
+            resync(source)
+        }
+    }
+
     fun setIgnoreConnectionLimit(source: SourceEntity, ignore: Boolean) {
         viewModelScope.launch { sourceDao.updateIgnoreConnectionLimit(source.id, ignore) }
     }

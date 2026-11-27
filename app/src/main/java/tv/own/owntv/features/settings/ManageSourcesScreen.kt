@@ -95,6 +95,8 @@ fun ManageSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var listsExportFor by remember { mutableStateOf<SourceEntity?>(null) }
     var listsImportFor by remember { mutableStateOf<SourceEntity?>(null) }
     var nameCleanup by remember { mutableStateOf<SourceEntity?>(null) }
+    val skipHiddenSources by vm.skipHiddenCategorySources.collectAsStateWithLifecycle()
+    var skipHiddenFor by remember { mutableStateOf<SourceEntity?>(null) }
     // Set while the "this will stop playback and take a while" confirmation is on screen.
     var confirmRetest by remember { mutableStateOf<SourceEntity?>(null) }
     val addFocus = remember { FocusRequester() }
@@ -345,6 +347,8 @@ fun ManageSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         onTest = { contextId = source.id; contextIndex = index; vm.testSource(source) },
                         onResync = { contextId = source.id; contextIndex = index; resyncChoice = source },
                         onCleanNames = { contextId = source.id; contextIndex = index; nameCleanup = source },
+                        skipHidden = if (source.type == SourceType.XTREAM) source.id in skipHiddenSources else null,
+                        onSkipHidden = { contextId = source.id; contextIndex = index; skipHiddenFor = source },
                         onExportLists = { contextId = source.id; contextIndex = index; listsExportFor = source; listsVm.startExport(source) },
                         onImportLists = { contextId = source.id; contextIndex = index; listsImportFor = source },
                         onCancelSync = { contextId = source.id; contextIndex = index; vm.cancelResync(source) },
@@ -393,6 +397,18 @@ fun ManageSourcesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
 
         nameCleanup?.let { src -> ChannelNameCleanupHost(src, onNeedsResync = { vm.resync(it) }, onDismiss = { nameCleanup = null }) }
+
+        // "Don't download hidden categories": what it does, then switched and refreshed on confirm.
+        skipHiddenFor?.let { src ->
+            val on = src.id in skipHiddenSources
+            ConfirmDialog(
+                title = stringResource(if (on) R.string.fork_skip_hidden_off_title else R.string.fork_skip_hidden_on_title),
+                message = stringResource(if (on) R.string.fork_skip_hidden_off_message else R.string.fork_skip_hidden_on_message, src.name),
+                onConfirm = { vm.setSkipHiddenCategories(src, !on); skipHiddenFor = null },
+                onDismiss = { skipHiddenFor = null },
+                confirmLabel = R.string.fork_skip_hidden_confirm,
+            )
+        }
 
         resyncChoice?.let { src ->
             ResyncChoiceDialog(
@@ -456,6 +472,9 @@ private fun SourceRow(
     onTest: () -> Unit,
     onResync: () -> Unit,
     onCleanNames: () -> Unit,
+    /** Xtream only: whether hidden categories are left out of a refresh (null: not offered). */
+    skipHidden: Boolean?,
+    onSkipHidden: () -> Unit,
     onExportLists: () -> Unit,
     onImportLists: () -> Unit,
     onCancelSync: () -> Unit,
@@ -499,6 +518,15 @@ private fun SourceRow(
             if (syncState.isActive) onCancelSync else onResync,
         ),
         StageAction(OwnTVIcon.SPARKLE, stringResource(R.string.settings_sources_clean_names), onCleanNames),
+    ) + listOfNotNull(
+        skipHidden?.let { skip ->
+            StageAction(
+                OwnTVIcon.EYE_OFF,
+                stringResource(if (skip) R.string.fork_skip_hidden_action_on else R.string.fork_skip_hidden_action_off),
+                onSkipHidden,
+            )
+        },
+    ) + listOf(
         StageAction(OwnTVIcon.SEND, stringResource(R.string.fork_lists_export), onExportLists),
         StageAction(OwnTVIcon.BACKUP, stringResource(R.string.fork_lists_import), onImportLists),
         StageAction(OwnTVIcon.TRASH, stringResource(R.string.settings_sources_delete), onDelete, danger = true),
