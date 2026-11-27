@@ -47,4 +47,11 @@ The playlist refreshes now.</string>
     <string name="fork_picture_level" translatable="false">%1$d / %2$d</string>
     <string name="fork_picture_reset" translatable="false">Reset to default picture</string>
     <string name="fork_player_guide" translatable="false">TV guide</string>
+    <string name="fork_metadata_fail_key_rejected" translatable="false">TMDB rejected the API key. Use the 32-character API Key, not the Read Access Token, and send it again.</string>
+    <string name="fork_metadata_fail_rate_limited" translatable="false">Too many requests right now. Try again in a minute.</string>
+    <string name="fork_metadata_fail_http" translatable="false">The metadata server answered with an error (HTTP %1$d).</string>
+    <string name="fork_metadata_fail_dns" translatable="false">Couldn\'t find %1$s. Check the TV\'s internet connection and DNS settings.</string>
+    <string name="fork_metadata_fail_timeout" translatable="false">The metadata server didn\'t answer in time. Check the TV\'s connection and try again.</string>
+    <string name="fork_metadata_fail_tls" translatable="false">The secure connection failed. Check the TV\'s date and time are correct.</string>
+    <string name="fork_metadata_fail_connect" translatable="false">Couldn\'t connect to the metadata server. Check the TV\'s internet connection.</string>
 </resources>

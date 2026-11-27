@@ -1718,7 +1718,8 @@ class SettingsViewModel(
 
     sealed interface MetadataFailure {
         data object EmptyTitle : MetadataFailure
-        data object ServerUnavailable : MetadataFailure
+        /** [reason] is what the provider recorded for the failed request, when it knows. */
+        data class ServerUnavailable(val reason: tv.own.owntv.core.metadata.MetadataFetchFailure?) : MetadataFailure
         data class NoMatch(val query: String) : MetadataFailure
         data class Unknown(val rawMessage: String?) : MetadataFailure
     }
@@ -1745,7 +1746,7 @@ class SettingsViewModel(
                 onSuccess = { hits ->
                     val top = hits?.firstOrNull()
                     if (hits == null) {
-                        MetadataTestState.Fail(MetadataFailure.ServerUnavailable)
+                        MetadataTestState.Fail(MetadataFailure.ServerUnavailable(metadataProvider.lastFailure))
                     } else if (top == null) {
                         MetadataTestState.Fail(MetadataFailure.NoMatch(q))
                     } else {

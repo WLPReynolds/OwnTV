@@ -26,6 +26,7 @@ import org.koin.androidx.compose.koinViewModel
 import androidx.tv.material3.Text
 import tv.own.owntv.R
 import tv.own.owntv.core.metadata.MetadataConfig
+import tv.own.owntv.core.metadata.MetadataFetchFailure
 import tv.own.owntv.ui.components.OwnTVIcon
 import tv.own.owntv.ui.theme.StageColors
 import tv.own.owntv.ui.theme.mpx
@@ -399,7 +400,7 @@ private fun MetadataTestLabel(state: SettingsViewModel.MetadataTestState) {
         ) to tv.own.owntv.ui.theme.stageAccent.accent
         is SettingsViewModel.MetadataTestState.Fail -> when (val failure = state.failure) {
             SettingsViewModel.MetadataFailure.EmptyTitle -> stringResource(R.string.settings_metadata_empty_title)
-            SettingsViewModel.MetadataFailure.ServerUnavailable -> stringResource(R.string.settings_metadata_server_unavailable)
+            is SettingsViewModel.MetadataFailure.ServerUnavailable -> metadataFailureText(failure.reason)
             is SettingsViewModel.MetadataFailure.NoMatch -> stringResource(R.string.settings_metadata_no_match, failure.query)
             is SettingsViewModel.MetadataFailure.Unknown -> failure.rawMessage ?: stringResource(R.string.settings_metadata_lookup_failed)
         } to androidx.compose.ui.graphics.Color(0xFFEF4444)
@@ -500,4 +501,18 @@ internal fun CompanionKeyDialog(
         width = 820.mpx,
         buttons = { tv.own.owntv.ui.stage.StageButton(stringResource(R.string.common_cancel), onClick = onDismiss, height = 56.mpx, textSize = 19, modifier = Modifier.focusRequester(closeFocus)) },
     ) { tv.own.owntv.ui.components.StageCompanionStatus(state) }
+}
+
+/** The connection test's failure line, naming the cause when the provider recorded one. */
+@Composable
+private fun metadataFailureText(reason: MetadataFetchFailure?): String = when (reason) {
+    MetadataFetchFailure.KeyRejected -> stringResource(R.string.fork_metadata_fail_key_rejected)
+    MetadataFetchFailure.RateLimited -> stringResource(R.string.fork_metadata_fail_rate_limited)
+    is MetadataFetchFailure.Http -> stringResource(R.string.fork_metadata_fail_http, reason.code)
+    is MetadataFetchFailure.HostNotFound -> stringResource(R.string.fork_metadata_fail_dns, reason.host)
+    MetadataFetchFailure.TimedOut -> stringResource(R.string.fork_metadata_fail_timeout)
+    MetadataFetchFailure.SecureConnection -> stringResource(R.string.fork_metadata_fail_tls)
+    MetadataFetchFailure.ConnectionFailed -> stringResource(R.string.fork_metadata_fail_connect)
+    MetadataFetchFailure.AllowanceUsed -> stringResource(R.string.settings_metadata_limit_reached)
+    is MetadataFetchFailure.Other, null -> stringResource(R.string.settings_metadata_server_unavailable)
 }
