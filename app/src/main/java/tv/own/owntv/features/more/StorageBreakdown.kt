@@ -132,7 +132,7 @@ internal suspend fun measureStorage(context: Context, db: OwnTVDatabase): Storag
     val guideFiles = cacheFiles { (it.startsWith("epg_") && (it.endsWith(".xmltv") || it.endsWith(".xmltv.tmp"))) || it.startsWith("portal_epg_") }
     val recordingScratch = cacheFiles { it.startsWith("owntv-dash-") }
     val fileParts = listOf(
-        StoragePart("Guide download (cached)", guideFiles.sumOf { it.length() }, if (guideFiles.isEmpty()) null else count(guideFiles.size.toLong(), "files")),
+        StoragePart("Guide download (cached)", guideFiles.sumOf { it.length() }, if (guideFiles.isEmpty()) null else count(guideFiles.size.toLong(), if (guideFiles.size == 1) "file" else "files")),
         StoragePart("Timeshift buffer", dirSize(File(context.noBackupFilesDir, "timeshift")), null),
         StoragePart("Channel logo art", dirSize(File(cache, "tv-live-logo-art")), null),
         StoragePart("Lists export", dirSize(File(cache, "remote-backup-export")), null),

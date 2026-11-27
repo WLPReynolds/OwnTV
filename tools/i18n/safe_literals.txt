@@ -241,6 +241,7 @@
 2	file-path	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	epg_
 1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	epg_programmes
 3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	episodes
+1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	file
 1	performance	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	files
 1	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	image_cache
 3	technical	app/src/main/java/tv/own/owntv/features/more/StorageBreakdown.kt	movies
